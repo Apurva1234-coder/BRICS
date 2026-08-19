@@ -1,0 +1,9 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      // For the hackathon demo, allow all read and write
+      allow read, write: if true;
+    }
+  }
+}

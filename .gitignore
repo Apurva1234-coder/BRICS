@@ -1,0 +1,46 @@
+# Env files — never commit real credentials
+.env
+.env.local
+.env.*
+!.env.example
+deploy.env.yaml
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-server
+.netlify/
+
+# Firebase local artifacts
+.firebase
+firebase-debug.log
+firebase-debug.*.log
+storage-debug.log
+ui-debug.log
+
+# Local media storage and data (dev-only)
+storage/
+server/data/*.json
+!server/data/example.json
+server/data/cache/*.json
+
+# Build caches
+coverage
+*.tsbuildinfo
+.server.*
+.vite.*
+.codex-run/
+.cache/
+
+# Live Sentinel/Gemini verification artifacts (may contain private report media)
+artifacts/sentinel-e2e/
+test-results/
+
+# Service account key — never commit
+serviceAccountKey.json
+*-firebase-adminsdk-*.json
+
+# NOTE: .firebaserc and firebase.json ARE committed (not sensitive)
+# NOTE: firestore.rules and storage.rules ARE committed
