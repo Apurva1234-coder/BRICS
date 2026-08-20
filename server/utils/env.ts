@@ -8,6 +8,11 @@ export function validateEnv() {
   if (!process.env.OPENAQ_API_KEY) {
     console.warn("OPENAQ_API_KEY is missing. OpenAQ supplementary station context will be skipped.");
   }
+  if (!process.env.EARTH_ENGINE_PRIVATE_KEY_FILE && !process.env.EARTH_ENGINE_PRIVATE_KEY_JSON && !process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    console.warn("Earth Engine credentials are missing. Satellite map requests will return a controlled unavailable response.");
+  }
+  if (!process.env.GOOGLE_CLOUD_PROJECT) process.env.GOOGLE_CLOUD_PROJECT = "cleanair-sentinel-506017";
+  if (!process.env.EARTH_ENGINE_PROJECT) process.env.EARTH_ENGINE_PROJECT = "cleanair-sentinel-506017";
   if (!process.env.OPENAQ_BASE_URL) {
     process.env.OPENAQ_BASE_URL = "https://api.openaq.org/v3";
   }

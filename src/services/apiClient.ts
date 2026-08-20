@@ -168,6 +168,7 @@ export const apiClient = {
   getAirQualityMap: (location?: { lat: number; lng: number }, options?: { signal?: AbortSignal }) => request<AirQualityMapResponse>(location
     ? `/api/air-quality/map?lat=${location.lat}&lng=${location.lng}`
     : "/api/air-quality/map", options),
+  loadSatellitePollution: (payload: { country: string; pollutant: string; startDate: string; endDate: string }, options?: { signal?: AbortSignal }) => request<{ success: boolean; tileUrl: string; pollutant: string; country: string; source: string; dataset: string; band: string; legend: { label: string; unit: string; min: number; max: number }; metadata: { startDate: string; endDate: string } }>("/api/satellite", { method: "POST", body: JSON.stringify(payload), signal: options?.signal }),
   getLocalAirQualityMap: (region = "pune_pcmc") =>
     request<AirQualityMapResponse>(`/api/air-quality/local-map?region=${encodeURIComponent(region)}`),
   getLocality: (lat: number, lng: number, historical = false) =>

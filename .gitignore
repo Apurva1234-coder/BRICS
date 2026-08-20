@@ -41,6 +41,10 @@ test-results/
 # Service account key — never commit
 serviceAccountKey.json
 *-firebase-adminsdk-*.json
+earth-engine-*.json
+earth-engine-service-account.json
+credentials/
+*.pem
 
 # NOTE: .firebaserc and firebase.json ARE committed (not sensitive)
 # NOTE: firestore.rules and storage.rules ARE committed

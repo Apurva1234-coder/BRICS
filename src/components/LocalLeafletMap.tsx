@@ -24,7 +24,7 @@ import { reportPhotoUrl, resolveMediaUrl } from "../utils/mediaUrl";
 import { DraggableMobileAqiPanel } from "./DraggableMobileAqiPanel";
 import { BRICS_COUNTRIES, type BricsCountry } from "../data/bricsCountries";
 
-export type PublicMapMode = "global" | "situations" | "reports" | "air";
+export type PublicMapMode = "global" | "situations" | "reports" | "air" | "satellite";
 type MapMode = PublicMapMode;
 type LayerKey = "regionalAqi" | "localAqi" | "forecastStations" | "citizenReports" | "situations" | "cpcbStations";
 type ForecastStationMapPoint = { id: string; stationName: string; lat: number; lng: number };
@@ -76,7 +76,8 @@ const mapModes: { key: MapMode; label: string }[] = [
   { key: "global", label: "BRICS Global" },
   { key: "situations", label: "Situations" },
   { key: "reports", label: "Reports" },
-  { key: "air", label: "AIR" }
+  { key: "air", label: "AIR" },
+  { key: "satellite", label: "SATELLITE" }
 ];
 
 const visibleByMode: Record<MapMode, Record<LayerKey, boolean>> = {
@@ -84,6 +85,7 @@ const visibleByMode: Record<MapMode, Record<LayerKey, boolean>> = {
   situations: { situations: true, regionalAqi: false, localAqi: false, forecastStations: false, citizenReports: true, cpcbStations: false },
   air: { situations: false, regionalAqi: false, localAqi: false, forecastStations: false, citizenReports: false, cpcbStations: true },
   reports: { situations: false, regionalAqi: false, localAqi: false, forecastStations: false, citizenReports: true, cpcbStations: false }
+  ,satellite: { situations: false, regionalAqi: false, localAqi: false, forecastStations: false, citizenReports: false, cpcbStations: false }
 };
 
 const legendByMode: Record<MapMode, { key: LayerKey; label: string; iconClass: string }[]> = {
@@ -101,7 +103,8 @@ const legendByMode: Record<MapMode, { key: LayerKey; label: string; iconClass: s
   ],
   reports: [
     { key: "citizenReports", label: "Citizen report", iconClass: "legend-dot-report" }
-  ]
+  ],
+  satellite: []
 };
 
 
@@ -840,6 +843,13 @@ export function LocalLeafletMap({
   const [forecastStations, setForecastStations] = useState<ForecastStationMapPoint[]>([]);
   const [selectedForecastStation, setSelectedForecastStation] = useState<ForecastStationMapPoint | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<BricsCountry | null>(null);
+  const [satellitePollutant, setSatellitePollutant] = useState("NO2");
+  const [satelliteStartDate, setSatelliteStartDate] = useState(() => new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10));
+  const [satelliteEndDate, setSatelliteEndDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [satelliteTileUrl, setSatelliteTileUrl] = useState<string | null>(null);
+  const [satelliteStatus, setSatelliteStatus] = useState("Satellite data not loaded");
+  const [satelliteLoading, setSatelliteLoading] = useState(false);
+  const satelliteCacheRef = useRef(new Map<string, string>());
   const [selectedForecast, setSelectedForecast] = useState<AqiForecastResult | null>(null);
   const [forecastLoading, setForecastLoading] = useState(false);
   const [forecastError, setForecastError] = useState<string | null>(null);
@@ -862,6 +872,7 @@ export function LocalLeafletMap({
     if (selectedReport) return { lat: selectedReport.lat, lng: selectedReport.lng, zoom: 16 };
     if (focusReport) return { lat: focusReport.lat, lng: focusReport.lng, zoom: 16 };
     if (userLocation) return { ...userLocation, zoom: 15 };
+    if (mode === "satellite") return { lat: 22.9734, lng: 78.6569, zoom: 5 };
     if (mode === "global") return { lat: 20, lng: 0, zoom: 2 };
     const firstReport = validReports[0];
     if (firstReport) return { lat: firstReport.lat, lng: firstReport.lng, zoom: 13 };
@@ -918,6 +929,36 @@ export function LocalLeafletMap({
   useEffect(() => {
     onModeChange?.(mode);
   }, [mode, onModeChange]);
+
+  useEffect(() => {
+    if (mode !== "satellite") {
+      setSatelliteTileUrl(null);
+      setSatelliteStatus("Satellite data not loaded");
+    }
+  }, [mode]);
+
+  const loadSatellitePollution = async () => {
+    const cacheKey = `India:${satellitePollutant}:${satelliteStartDate}:${satelliteEndDate}`;
+    const cached = satelliteCacheRef.current.get(cacheKey);
+    if (cached) {
+      setSatelliteTileUrl(cached);
+      setSatelliteStatus("Satellite data loaded (cached)");
+      return;
+    }
+    setSatelliteLoading(true);
+    setSatelliteStatus("Loading satellite data…");
+    try {
+      const response = await apiClient.loadSatellitePollution({ country: "India", pollutant: satellitePollutant, startDate: satelliteStartDate, endDate: satelliteEndDate });
+      satelliteCacheRef.current.set(cacheKey, response.tileUrl);
+      setSatelliteTileUrl(response.tileUrl);
+      setSatelliteStatus("Satellite data loaded");
+    } catch (error) {
+      setSatelliteTileUrl(null);
+      setSatelliteStatus(error instanceof Error ? error.message : "Satellite data could not be loaded. Please try again.");
+    } finally {
+      setSatelliteLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!legendOpen) return undefined;
@@ -1121,6 +1162,9 @@ export function LocalLeafletMap({
             maxZoom={19}
             eventHandlers={{ tileerror: () => setMapFailed(true) }}
           />
+          {mode === "satellite" && satelliteTileUrl && (
+            <TileLayer url={satelliteTileUrl} opacity={0.72} attribution="Sentinel-5P / Google Earth Engine" zIndex={450} />
+          )}
           <BricsBoundaryLayer />
           <MapFocus
             center={{ lat: initialFocus.lat, lng: initialFocus.lng }}
@@ -1364,6 +1408,30 @@ export function LocalLeafletMap({
             ))}
           </div>
         </div>
+
+        {mode === "satellite" && (
+          <div className="absolute left-4 top-20 z-[700] w-[min(320px,calc(100%-2rem))] rounded-2xl border border-white/10 bg-slate-950/95 p-4 shadow-2xl backdrop-blur-xl">
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-300">Satellite Pollution</p>
+            <p className="mt-1 text-[11px] text-slate-500">Sentinel-5P atmospheric pollutant concentration</p>
+            <div className="mt-3 space-y-2.5">
+              <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500">Pollutant
+                <select value={satellitePollutant} onChange={(event) => setSatellitePollutant(event.target.value)} className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-2.5 py-2 text-xs text-white">
+                  <option value="NO2">NO₂</option><option value="SO2">SO₂</option><option value="CO">CO</option><option value="O3">O₃</option><option value="HCHO">HCHO</option>
+                </select>
+              </label>
+              <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500">Region
+                <select disabled value="India" className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-2.5 py-2 text-xs text-white"><option>India</option></select>
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Start<input type="date" value={satelliteStartDate} onChange={(event) => setSatelliteStartDate(event.target.value)} className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-xs text-white" /></label>
+                <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">End<input type="date" value={satelliteEndDate} onChange={(event) => setSatelliteEndDate(event.target.value)} className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-xs text-white" /></label>
+              </div>
+              <button type="button" disabled={satelliteLoading} onClick={loadSatellitePollution} className="w-full rounded-lg bg-emerald-400 px-3 py-2 text-xs font-bold text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-50">{satelliteLoading ? "Loading…" : "🛰 Load Satellite Pollution"}</button>
+              <p className="text-[11px] text-slate-400">Status: {satelliteStatus}</p>
+              {satelliteTileUrl && <p className="text-[10px] text-slate-500">Legend: relative satellite concentration. This is not AQI.</p>}
+            </div>
+          </div>
+        )}
 
         {mode === "air" && (
           <CpcbLayerPanel
