@@ -94,26 +94,45 @@ export function SituationListItem({ situation, isSelected = false, onClick }: Si
           </div>
 
           {/* Place name */}
-          <h4 className="text-[15px] font-semibold text-white leading-snug line-clamp-2">{situation.placeLabel}</h4>
+          <h4 className="text-[14px] font-semibold text-white leading-snug line-clamp-1">{situation.placeLabel}</h4>
 
           {/* Description */}
-          <p className="text-[13px] text-slate-400 leading-relaxed line-clamp-2">{situation.shortDescription}</p>
+          <p className="text-[12px] text-slate-400 leading-tight line-clamp-1">{situation.shortDescription}</p>
+
+          {/* Contextual Intelligence Badges (Schools / Hospitals / Recurrence) */}
+          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+            {situation.sensitiveLocations?.categoryCounts?.school ? (
+              <span className="inline-flex items-center gap-1 rounded-md bg-blue-500/10 border border-blue-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-blue-300">
+                <span>🏫</span> {situation.sensitiveLocations.categoryCounts.school} school{situation.sensitiveLocations.categoryCounts.school > 1 ? "s" : ""}
+              </span>
+            ) : null}
+            {situation.sensitiveLocations?.categoryCounts?.hospital ? (
+              <span className="inline-flex items-center gap-1 rounded-md bg-red-500/10 border border-red-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-red-300">
+                <span>🏥</span> {situation.sensitiveLocations.categoryCounts.hospital} hospital{situation.sensitiveLocations.categoryCounts.hospital > 1 ? "s" : ""}
+              </span>
+            ) : null}
+            {situation.recurrence && situation.recurrence.similarIncidentCount > 1 ? (
+              <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">
+                <span>🔁</span> {situation.recurrence.similarIncidentCount} incidents / {situation.recurrence.windowDays}d
+              </span>
+            ) : null}
+          </div>
         </div>
 
         {/* Bottom: count + score bar */}
-        <div className="flex items-center justify-between gap-3 mt-2">
-          <span className="text-[12px] text-slate-500">
-            {situation.reportCount} evidence report{situation.reportCount !== 1 ? 's' : ''} · {situation.unresolvedCount} open
-            {situation.reportCount > 1 && <span className="block text-[11px] mt-0.5 text-slate-600">Grouped nearby evidence</span>}
+        <div className="flex items-center justify-between gap-3 mt-1.5 pt-1 border-t border-white/[0.04]">
+          <span className="text-[11px] text-slate-500">
+            {situation.reportCount} evidence report{situation.reportCount !== 1 ? 's' : ''}
           </span>
           <div className="flex items-center gap-1.5 shrink-0">
-            <div className="score-bar-track w-14">
+            <span className="text-[10px] uppercase font-bold text-slate-500">Evidence</span>
+            <div className="score-bar-track w-12">
               <div
                 className="score-bar-fill"
                 style={{ width: `${Math.max(5, situation.situationScore)}%`, background: color }}
               />
             </div>
-            <span className="text-[11px] text-slate-600 font-mono">{situation.situationScore}</span>
+            <span className="text-[11px] font-bold text-slate-300 font-mono">{situation.situationScore}</span>
           </div>
         </div>
       </div>

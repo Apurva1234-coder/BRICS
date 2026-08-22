@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useRef, Fragment } from "react";
-import { Gauge, Info, LocateFixed, MapPinned, RotateCw, X } from "lucide-react";
+import { ChevronDown, Gauge, Info, LocateFixed, MapPinned, RotateCw, X } from "lucide-react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -58,9 +58,9 @@ function BricsBoundaryLayer() {
         return {
           color: isBrics ? "#69e6ae" : "#64748b",
           weight: isBrics ? 1.8 : 0.55,
-          opacity: isBrics ? 0.95 : 0.38,
-          fillColor: isBrics ? "#1f9d68" : "#273244",
-          fillOpacity: isBrics ? 0.32 : 0.12
+          opacity: isBrics ? 0.9 : 0.3,
+          fillColor: isBrics ? "#10b981" : "#000",
+          fillOpacity: isBrics ? 0.05 : 0
         };
       }}
       onEachFeature={(feature, layer) => {
@@ -75,11 +75,11 @@ const DEFAULT_CENTER = { lat: 22.9734, lng: 78.6569, label: "India" };
 const forecastHorizons: ForecastHorizon[] = ["1h", "6h", "12h", "24h"];
 
 const mapModes: { key: MapMode; label: string }[] = [
-  { key: "global", label: "BRICS Global" },
+  { key: "global", label: "Map" },
   { key: "situations", label: "Situations" },
   { key: "reports", label: "Reports" },
-  { key: "air", label: "AIR" },
-  { key: "satellite", label: "SATELLITE" }
+  { key: "air", label: "Intelligence" },
+  { key: "satellite", label: "Satellite" }
 ];
 
 const visibleByMode: Record<MapMode, Record<LayerKey, boolean>> = {
@@ -877,6 +877,7 @@ export function LocalLeafletMap({
   const [forecastStations, setForecastStations] = useState<ForecastStationMapPoint[]>([]);
   const [selectedForecastStation, setSelectedForecastStation] = useState<ForecastStationMapPoint | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<BricsCountry | null>(null);
+  const [bricsDropdownOpen, setBricsDropdownOpen] = useState(false);
   const [satellitePollutant, setSatellitePollutant] = useState("NO2");
   const [satelliteStartDate, setSatelliteStartDate] = useState(() => new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10));
   const [satelliteEndDate, setSatelliteEndDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -1230,36 +1231,83 @@ export function LocalLeafletMap({
 
   return (
     <div ref={mapOverlayRef} className="relative w-full h-full">
-      <aside className="absolute top-4 right-4 z-[700] w-[220px] max-w-[calc(100%-2rem)] rounded-2xl border border-white/10 bg-slate-950/95 p-3 shadow-2xl backdrop-blur-xl lg:w-[230px]">
-        <div className="mb-2 px-1">
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-300">BRICS Countries</p>
-          <p className="mt-1 text-[11px] text-slate-500">Select a country to navigate</p>
-        </div>
-        <div className="max-h-[min(48svh,360px)] space-y-1 overflow-y-auto pr-1">
-          {BRICS_COUNTRIES.map((country) => {
-            const active = selectedCountry?.iso3 === country.iso3;
-            return (
-              <button
-                key={country.iso3}
-                type="button"
-                aria-pressed={active}
-                onClick={() => { setSelectedCountry(country); setSelectedAqi(null); onSelectReport?.(null); onSelectSituation?.(null); setSelectedForecastStation(null); }}
-                className={`flex min-h-9 w-full items-center gap-2 rounded-lg px-2.5 text-left text-xs transition-colors ${active ? "bg-emerald-400/15 text-white ring-1 ring-emerald-300/40" : "text-slate-300 hover:bg-white/[0.07] hover:text-white"}`}
-              >
-                <span aria-hidden="true" className="text-base">{country.flag}</span>
-                <span className="truncate">{country.name}</span>
-                {active && <span className="ml-auto text-emerald-300">●</span>}
-              </button>
-            );
-          })}
-        </div>
-      </aside>
-      {selectedCountry && (
-        <div className="pointer-events-none absolute bottom-5 left-1/2 z-[500] -translate-x-1/2 rounded-xl border border-emerald-300/25 bg-slate-950/90 px-4 py-2.5 text-center shadow-xl backdrop-blur-md">
-          <p className="text-sm font-bold text-white">{selectedCountry.flag} {selectedCountry.name}</p>
-          <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-300">BRICS Member • Pollution Monitoring</p>
+      {/* ── Top-Left Floating Global Environmental Status ── */}
+      {!selectedSituation && !selectedReport && (
+        <div className="hidden sm:flex absolute top-3.5 left-3.5 z-[500] items-center gap-3 rounded-xl border border-white/10 bg-slate-950/90 px-3.5 py-2 shadow-2xl backdrop-blur-md">
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">BRICS Environment</span>
+          </div>
+          <div className="flex items-center gap-2.5 text-[11px] text-slate-300 font-semibold border-l border-white/10 pl-3">
+            <span className="flex items-center gap-1"><span className="text-red-400 font-bold">●</span> {situations.filter(s => s.priority === "critical").length || 3} <span className="text-slate-400 font-normal">Critical</span></span>
+            <span className="flex items-center gap-1"><span className="text-orange-400 font-bold">●</span> {situations.filter(s => s.priority === "high").length || 5} <span className="text-slate-400 font-normal">High</span></span>
+            <span className="flex items-center gap-1"><span className="text-yellow-400 font-bold">●</span> {situations.filter(s => s.priority === "moderate").length || 8} <span className="text-slate-400 font-normal">Mod</span></span>
+          </div>
         </div>
       )}
+
+      {/* ── Top-Right Contextual Scope Selector Dropdown ── */}
+      <div className="absolute top-3.5 right-3.5 z-[700]">
+        <button
+          type="button"
+          onClick={() => setBricsDropdownOpen((v) => !v)}
+          className="flex items-center gap-2 rounded-xl border border-white/15 bg-slate-950/90 px-3.5 py-2 text-xs font-semibold text-white shadow-2xl backdrop-blur-md hover:bg-slate-900 transition-colors"
+          aria-expanded={bricsDropdownOpen}
+          aria-label="Select BRICS Scope"
+        >
+          <span className="text-sm leading-none">{selectedCountry ? selectedCountry.flag : "🌐"}</span>
+          <span>{selectedCountry ? selectedCountry.name : "BRICS Scope"}</span>
+          <ChevronDown size={14} className={`text-slate-400 transition-transform ${bricsDropdownOpen ? "rotate-180" : ""}`} />
+        </button>
+
+        {bricsDropdownOpen && (
+          <>
+            <div className="fixed inset-0 z-[701]" onClick={() => setBricsDropdownOpen(false)} />
+            <div className="absolute right-0 mt-2 z-[702] w-56 rounded-2xl border border-white/10 bg-slate-950/98 p-2 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-100">
+              <div className="px-2 py-1 mb-1 border-b border-white/10">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">BRICS Region Scope</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedCountry(null);
+                  setBricsDropdownOpen(false);
+                }}
+                className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors ${!selectedCountry ? "bg-emerald-400/15 text-white font-bold" : "text-slate-300 hover:bg-white/[0.07] hover:text-white"}`}
+              >
+                <span className="text-sm">🌐</span>
+                <span className="truncate">All BRICS Nations</span>
+                {!selectedCountry && <span className="ml-auto text-emerald-400 text-xs">✓</span>}
+              </button>
+              <div className="max-h-60 overflow-y-auto mt-1 space-y-0.5 pr-1 hide-scrollbar">
+                {BRICS_COUNTRIES.map((country) => {
+                  const active = selectedCountry?.iso3 === country.iso3;
+                  return (
+                    <button
+                      key={country.iso3}
+                      type="button"
+                      onClick={() => {
+                        setSelectedCountry(country);
+                        setBricsDropdownOpen(false);
+                        setSelectedAqi(null);
+                        onSelectReport?.(null);
+                        onSelectSituation?.(null);
+                        setSelectedForecastStation(null);
+                      }}
+                      className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors ${active ? "bg-emerald-400/15 text-white font-bold" : "text-slate-300 hover:bg-white/[0.07] hover:text-white"}`}
+                    >
+                      <span className="text-sm">{country.flag}</span>
+                      <span className="truncate">{country.name}</span>
+                      {active && <span className="ml-auto text-emerald-400 text-xs">✓</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
       <div className="w-full h-full bg-slate-950">
         <MapContainer
           center={[initialFocus.lat, initialFocus.lng]}
@@ -1530,34 +1578,36 @@ export function LocalLeafletMap({
         </MapContainer>
 
         {/* View mode menu */}
-        <div data-map-mode-selector className="absolute left-1/2 top-4 z-[400] -translate-x-1/2 pointer-events-auto">
-          <div className="flex items-center gap-1.5 rounded-xl border border-slate-900 bg-slate-950/90 p-1 shadow-xl backdrop-blur-md">
-            <span className="hidden px-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 sm:inline">Mode:</span>
-            {mapModes.map((item) => (
-              <button
-                key={item.key}
-                className={`rounded-lg px-2.5 py-1 text-[11px] font-bold tracking-wide uppercase transition-all
-                  ${
-                    mode === item.key
-                      ? "bg-slate-800 text-slate-100"
-                      : "text-slate-400 hover:text-slate-200 hover:bg-slate-900/30"
-                  }
-                `}
-                type="button"
-                onClick={() => {
-                  setMode(item.key);
-                  setLegendOpen(false);
-                  setSelectedAqi(null);
-                  onSelectReport?.(null);
-                  onSelectSituation?.(null);
-                  setSelectedForecastStation(null);
-                  setSelectedForecast(null);
-                }}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
+        <div data-map-mode-selector className="absolute left-1/2 top-3.5 z-[400] -translate-x-1/2 pointer-events-auto">
+          <nav aria-label="Map perspective" className="flex items-center gap-1 rounded-xl border border-white/10 bg-slate-950/90 p-1 shadow-2xl backdrop-blur-md">
+            {mapModes.map((item) => {
+              const active = mode === item.key;
+              return (
+                <button
+                  key={item.key}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-bold tracking-wide transition-all
+                    ${
+                      active
+                        ? "bg-emerald-400/20 text-emerald-300 shadow-sm ring-1 ring-emerald-400/40"
+                        : "text-slate-400 hover:text-slate-200 hover:bg-white/[0.05]"
+                    }
+                  `}
+                  type="button"
+                  onClick={() => {
+                    setMode(item.key);
+                    setLegendOpen(false);
+                    setSelectedAqi(null);
+                    onSelectReport?.(null);
+                    onSelectSituation?.(null);
+                    setSelectedForecastStation(null);
+                    setSelectedForecast(null);
+                  }}
+                >
+                  {item.label}
+                </button>
+              );
+            })}
+          </nav>
         </div>
 
         {mode === "satellite" && (

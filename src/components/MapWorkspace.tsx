@@ -6,7 +6,7 @@ import { ReportDetailPanel } from "./ReportDetailPanel";
 import { LocalLeafletMap, type PublicMapMode } from "./LocalLeafletMap";
 import { apiClient } from "../services/apiClient";
 import { useTranslation } from "react-i18next";
-import { X, TrendingUp, TrendingDown, Minus, Wind, ChevronDown, ChevronUp, MapPin } from "lucide-react";
+import { X, TrendingUp, TrendingDown, Minus, Wind, ChevronDown, ChevronUp, ChevronRight, MapPin } from "lucide-react";
 import { aqiCategory, aqiColor, getForecastDisplayState, isFiniteNonNegative } from "../services/airQualityDisplay";
 
 interface MapWorkspaceProps {
@@ -264,6 +264,7 @@ export function MapWorkspace({
   const [selectedReport, setSelectedReport] = useState<PollutionReport | null>(focusReport ?? null);
   const [mapMode, setMapMode] = useState<PublicMapMode>("global");
   const [activeFilter, setActiveFilter] = useState("All");
+  const [priorityOpen, setPriorityOpen] = useState(true);
   // Seed with India default so forecast fetches immediately on mount.
   // MapViewTracker updates this as the user pans.
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number }>(
@@ -343,7 +344,9 @@ export function MapWorkspace({
       <div className={`
           absolute bottom-0 w-full max-h-[45svh] z-[500]
           rounded-t-3xl border-t border-white/10 bg-[#070b0a]/95 backdrop-blur overflow-hidden flex flex-col
-          lg:relative lg:max-h-full lg:w-[300px] 2xl:w-[380px] lg:z-10 lg:rounded-none lg:border-none lg:bg-[rgba(10,11,15,0.95)] lg:backdrop-blur-xl lg:border-r lg:border-[var(--border)]
+          lg:relative lg:max-h-full lg:z-10 lg:rounded-none lg:border-none lg:bg-[rgba(10,11,15,0.95)] lg:backdrop-blur-xl lg:border-r lg:border-[var(--border)]
+          transition-all duration-300 ease-in-out
+          ${!priorityOpen ? "lg:w-0 lg:opacity-0 lg:pointer-events-none" : "lg:w-[320px] 2xl:w-[360px] lg:opacity-100"}
           ${isAirMode ? "hidden" : ""}
         `}>
         <div className="lg:hidden flex justify-center pt-3 pb-1 flex-shrink-0">
@@ -358,12 +361,29 @@ export function MapWorkspace({
             activeFilter={activeFilter}
             onFilterChange={setActiveFilter}
             onReportClick={() => onNavigate("capture")}
+            onToggleCollapse={() => setPriorityOpen(false)}
           />
         </div>
       </div>
 
       {/* ── Center map canvas — fills remaining space ── */}
       <div className="relative flex-1 h-full min-h-0 min-w-0">
+        {/* ── Expand Priority Drawer Handle Button ── */}
+        {!priorityOpen && !isAirMode && (
+          <button
+            type="button"
+            onClick={() => setPriorityOpen(true)}
+            className="hidden lg:flex absolute top-3.5 left-3.5 z-[550] items-center gap-2 rounded-xl border border-white/15 bg-slate-950/90 px-3.5 py-2 text-xs font-semibold text-white shadow-2xl backdrop-blur-md hover:bg-slate-900 transition-all hover:scale-105"
+            aria-label="Open Priority Events"
+          >
+            <ChevronRight size={15} className="text-emerald-400" />
+            <span>Priority Events</span>
+            <span className="rounded-full bg-emerald-400/20 px-1.5 py-0.2 text-[10px] font-bold text-emerald-300">
+              {situations.length}
+            </span>
+          </button>
+        )}
+
         {globalError && (
           <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-red-500/90 text-white px-6 py-3 rounded-xl shadow-xl backdrop-blur-md border border-red-400 text-sm font-medium flex items-center gap-3">
             <span className="flex-shrink-0">⚠️</span>

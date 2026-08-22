@@ -1,4 +1,4 @@
-import { Camera, SlidersHorizontal } from "lucide-react";
+import { Camera, ChevronLeft, SlidersHorizontal } from "lucide-react";
 import type { PollutionSituation } from "../types";
 import { SituationListItem } from "./SituationListItem";
 import { useTranslation } from "react-i18next";
@@ -11,6 +11,7 @@ interface SituationRailProps {
   activeFilter: string;
   onFilterChange: (f: string) => void;
   onReportClick: () => void;
+  onToggleCollapse?: () => void;
 }
 
 // Internal keys stay English for comparison logic — only display is translated
@@ -23,7 +24,8 @@ export function SituationRail({
   onSelectSituation,
   activeFilter,
   onFilterChange,
-  onReportClick
+  onReportClick,
+  onToggleCollapse
 }: SituationRailProps) {
   const { t } = useTranslation();
 
@@ -46,35 +48,45 @@ export function SituationRail({
   return (
     <div className="flex flex-col h-full bg-transparent">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-white/[0.05]">
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <h2 className="text-[18px] font-bold text-white tracking-tight leading-none">
-              {t("situation.rankedActionAreas")}
-            </h2>
-            <p className="text-[12px] font-medium text-slate-500 mt-1">
-              {situations.length === 0
-                ? `0 ${t("situation.rankedActionAreas").toLowerCase()} • ${totalReports} ${t("situation.evidenceReports")}`
-                : `${situations.length} ${t("situation.rankedActionAreas").toLowerCase()} • ${totalReports} ${t("situation.evidenceReports")}`}
-            </p>
+      <div className="px-3.5 py-3 border-b border-white/[0.06]">
+        <div className="flex items-center justify-between mb-2.5">
+          <div className="flex items-center gap-2">
+            {onToggleCollapse && (
+              <button
+                type="button"
+                onClick={onToggleCollapse}
+                title="Collapse drawer"
+                className="hidden lg:flex items-center justify-center h-7 w-7 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.08] transition-colors"
+              >
+                <ChevronLeft size={16} />
+              </button>
+            )}
+            <div>
+              <h2 className="text-[15px] font-bold text-white tracking-tight leading-none">
+                Priority Events
+              </h2>
+              <p className="text-[11px] font-medium text-slate-500 mt-1">
+                {situations.length} priority incidents • {totalReports} reports
+              </p>
+            </div>
           </div>
           <button
             onClick={onReportClick}
-            className="primary-button !px-3 !py-2 !gap-1.5"
+            className="primary-button !px-2.5 !py-1.5 !gap-1 text-xs"
             title={t("report.submitReport")}
           >
-            <Camera size={15} />
-            <span className="hidden sm:inline">{t("nav.capture")}</span>
+            <Camera size={14} />
+            <span className="hidden sm:inline">Report</span>
           </button>
         </div>
 
         {/* Filter chips */}
-        <div className="flex gap-2 overflow-x-auto pb-1 hide-scrollbar">
+        <div className="flex gap-1.5 overflow-x-auto pb-0.5 hide-scrollbar">
           {FILTERS.map((f) => (
             <button
               key={f}
               onClick={() => onFilterChange(f)}
-              className={`filter-chip flex-shrink-0 ${activeFilter === f ? "filter-chip-active" : ""}`}
+              className={`filter-chip !px-2.5 !py-1 text-xs flex-shrink-0 ${activeFilter === f ? "filter-chip-active" : ""}`}
             >
               {filterLabel(f)}
             </button>

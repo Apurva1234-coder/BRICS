@@ -48,9 +48,9 @@ export function AppShell({ children, navItems, activeRoute, onNavigate, stats, o
 
       {/* ── Left sidebar (Desktop) ── */}
       <aside
-        className="hidden lg:flex h-full min-h-0 flex-col gap-2 py-4 px-3 flex-shrink-0 z-30"
+        className="hidden lg:flex h-full min-h-0 flex-col gap-2 py-3.5 px-2 flex-shrink-0 z-30"
         style={{
-          width: "188px",
+          width: "144px",
           background: "rgba(8,10,8,0.96)",
           borderRight: "1px solid var(--border)",
           boxShadow: "18px 0 60px rgba(0,0,0,0.18)",
@@ -59,7 +59,7 @@ export function AppShell({ children, navItems, activeRoute, onNavigate, stats, o
         {/* Logo mark */}
         <button
           onClick={() => onNavigate("map")}
-          className="mb-3 flex h-12 w-full items-center gap-3 px-3 rounded-lg flex-shrink-0"
+          className="mb-2 flex h-11 w-full items-center gap-2.5 px-2.5 rounded-lg flex-shrink-0"
           style={{
             background: "linear-gradient(135deg, rgba(132,240,106,0.16), rgba(104,215,222,0.08))",
             border: "1px solid rgba(232,239,226,0.1)",
@@ -70,7 +70,7 @@ export function AppShell({ children, navItems, activeRoute, onNavigate, stats, o
           <span className="brand-mark">
             <span />
           </span>
-          <span className="text-sm font-bold text-white">NagarNetra</span>
+          <span className="text-xs font-bold text-white tracking-wide">NagarNetra</span>
         </button>
 
         <nav aria-label={t("a11y.primaryNavigation")} className="grid gap-1">
@@ -85,7 +85,7 @@ export function AppShell({ children, navItems, activeRoute, onNavigate, stats, o
               title={label}
               aria-label={label}
               aria-current={active ? "page" : undefined}
-              className="relative flex items-center justify-start gap-3 w-full rounded-lg px-3 py-2.5 text-left transition-all duration-150 min-h-[44px]"
+              className="relative flex items-center justify-start gap-2.5 w-full rounded-lg px-2.5 py-2 text-left transition-all duration-150 min-h-[38px]"
               style={{
                 color: active ? "var(--accent)" : "#64748b",
                 background: active ? "rgba(0,224,122,0.08)" : "transparent",
@@ -99,12 +99,12 @@ export function AppShell({ children, navItems, activeRoute, onNavigate, stats, o
               >
               {active && (
                 <span
-                  className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full"
+                  className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full"
                   style={{ background: "var(--accent)" }}
                 />
               )}
-              <Icon size={20} strokeWidth={active ? 2.2 : 1.7} />
-              <span className="text-sm leading-tight" style={{ fontWeight: 700 }}>{label}</span>
+              <Icon size={17} strokeWidth={active ? 2.2 : 1.7} />
+              <span className="text-xs leading-tight" style={{ fontWeight: 700 }}>{label}</span>
             </button>
           );
         })}</nav>
@@ -112,18 +112,10 @@ export function AppShell({ children, navItems, activeRoute, onNavigate, stats, o
         {/* Spacer */}
         <div className="flex-1" />
 
-        <button type="button" onClick={openSettings} className="a11y-setting-button px-3" aria-label={t("a11y.openSettings")}>
-          <Settings size={18} aria-hidden="true" />
-          <span>Preferences</span>
+        <button type="button" onClick={openSettings} className="a11y-setting-button px-2.5 py-2 text-xs" aria-label={t("a11y.openSettings")}>
+          <Settings size={16} aria-hidden="true" />
+          <span className="text-xs">Preferences</span>
         </button>
-
-        {/* Live report count */}
-        {stats.total > 0 && (
-          <div className="mb-1 flex items-center justify-between rounded-lg px-3 py-2" style={{ background: "rgba(255,255,255,0.035)", border: "1px solid var(--border)" }}>
-            <div className="text-[18px] font-black" style={{ color: "var(--accent)" }}>{stats.total}</div>
-            <div style={{ fontSize: "10px", color: "#6f786c", fontWeight: 700, textTransform: "uppercase" }}>{t("nav.capture")}</div>
-          </div>
-        )}
       </aside>
 
       {/* ── Main content ── */}
