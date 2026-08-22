@@ -184,9 +184,9 @@ export async function getOpenMeteoGlobalAirQuality(): Promise<OpenMeteoNationalP
   const cached = countryCaches.get(globalCacheKey);
   if (cached && cached.expires > Date.now()) return cached.value;
 
-  // Fetch top 3 cities for each BRICS country for global overview
+  // Fetch all major cities for each BRICS country for full global coverage
   const globalCities = BRICS_COUNTRIES_CONFIG.flatMap((c) =>
-    c.majorCities.slice(0, 3).map((city) => ({ ...city, country: c.name }))
+    c.majorCities.map((city) => ({ ...city, country: c.name }))
   );
 
   const payload = await requestOpenMeteo(

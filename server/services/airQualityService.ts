@@ -262,16 +262,37 @@ function toMapPoint(station: AirQualityStation, current?: StationAqiSnapshot, sn
 }
 
 export async function getAirQualityMap(options?: { lat?: number; lng?: number; country?: string; iso?: string; global?: boolean }): Promise<AirQualityMapResponse> {
-  const isGlobal = Boolean(options?.global || options?.country?.toLowerCase() === "global");
   const requestedCountry = options?.country || options?.iso;
   const bricsCountry = requestedCountry ? findBricsCountry(requestedCountry) : undefined;
+  const isGlobal = Boolean(options?.global || options?.country?.toLowerCase() === "global" || !bricsCountry);
 
-  // 1. Global BRICS Multi-Country Overview
+  // 1. Global BRICS Multi-Country Overview (default for world map / all 11 nations)
   if (isGlobal) {
     const globalModel = await getOpenMeteoGlobalAirQuality().catch(() => []);
-    const points = globalModel.map((point) =>
+    const points: AirQualityMapPoint[] = globalModel.map((point) =>
       toOpenMeteoMapPoint(point.summary, point.lat, point.lng, point.city, point.country || point.state)
     );
+
+    // Merge in Indian national monitoring points if available
+    try {
+      const cpcb = await timed(getCpcbMapPoints().catch(() => ({ points: [] })), 1_500, { points: [] });
+      const cpcbStations = (cpcb?.points || []).flatMap((p) => p.cpcbStation ? [cpcbStationToStation(p.cpcbStation)] : []);
+      if (cpcbStations.length > 0) {
+        const cpcbMapPoints = cpcbStations.map((station) => toMapPoint(station, undefined, true));
+        // Add unique CPCB stations
+        const existingKeys = new Set(points.map((p) => `${p.lat.toFixed(2)}:${p.lng.toFixed(2)}`));
+        for (const p of cpcbMapPoints) {
+          const key = `${p.lat.toFixed(2)}:${p.lng.toFixed(2)}`;
+          if (!existingKeys.has(key)) {
+            existingKeys.add(key);
+            points.push(p);
+          }
+        }
+      }
+    } catch {
+      // Continue with global model points
+    }
+
     const totalPhysicalStations = points.length;
     const metricCoverage = Object.fromEntries(
       ["aqi", ...POLLUTANT_ORDER].map((metric) => [
@@ -289,15 +310,15 @@ export async function getAirQualityMap(options?: { lat?: number; lng?: number; c
     return {
       generatedAt: new Date().toISOString(),
       country: "Global (BRICS)",
-      cpcbUsable: false,
+      cpcbUsable: true,
       cpcbReason: "Global view displays standardized multi-country monitoring points across all 11 BRICS member states.",
       openAqUsable: true,
       openAqReason: "Global monitoring coverage powered by OpenAQ and Open-Meteo atmospheric models.",
       points,
       providerCounts: {
-        cpcb_data_gov: 0,
-        openaq: 0,
-        open_meteo: points.length,
+        cpcb_data_gov: points.filter((p) => p.provider === "cpcb_data_gov").length,
+        openaq: points.filter((p) => p.provider === "openaq").length,
+        open_meteo: points.filter((p) => p.provider === "open_meteo").length,
         fused_measured: 0
       },
       completeness: {

@@ -51,7 +51,7 @@ export function NearbyPage({
     setLoadingMap(true);
     setMapError(null);
     apiClient
-      .getAirQualityMap(viewerLocation || undefined, { signal: controller.signal })
+      .getAirQualityMap({ global: true }, { signal: controller.signal })
       .then((value) => {
         if (!cancelled) setMapLayer(value);
       })
@@ -90,9 +90,8 @@ export function NearbyPage({
         const changed = signature !== lastSignature;
         lastSignature = signature;
         if (changed) {
-          const refreshedMap = await apiClient.getAirQualityMap(viewerLocation || undefined, { signal: activeController.signal });
-          if (cancelled) return;
-          setMapLayer(refreshedMap);
+          const refreshedMap = await apiClient.getAirQualityMap({ global: true }, { signal: activeController.signal });
+          if (!cancelled) setMapLayer(refreshedMap);
         }
         const nationalSyncRunning = progress.warnings.some((warning) => warning.includes("national station synchronization is still running"));
         const terminal = !nationalSyncRunning && (progress.snapshot.complete || progress.warnings.some((warning) => warning.includes("no_open_aq_station_history_candidates")));
