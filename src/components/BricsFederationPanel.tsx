@@ -4,7 +4,8 @@ import type {
   BricsCountryNode,
   BricsFederationEvent,
   BricsFederationStatusResponse,
-  BricsCountryCode
+  BricsCountryCode,
+  LiveFederationExchangeResponse
 } from "../types";
 import {
   Globe,
@@ -20,7 +21,9 @@ import {
   SlidersHorizontal,
   Compass,
   TrendingUp,
-  ShieldAlert
+  ShieldAlert,
+  Sparkles,
+  CloudSun
 } from "lucide-react";
 import { CrossBorderPropagationPanel } from "./CrossBorderPropagationPanel";
 import { EconomicCorridorPanel } from "./EconomicCorridorPanel";
@@ -35,7 +38,7 @@ export function BricsFederationPanel() {
   const [selectedSeverityFilter, setSelectedSeverityFilter] = useState<string>("ALL");
   const [exchangeSimulationStep, setExchangeSimulationStep] = useState<number>(0);
   const [isSimulating, setIsSimulating] = useState(false);
-  const [simulatedEvent, setSimulatedEvent] = useState<BricsFederationEvent | null>(null);
+  const [exchangeResult, setExchangeResult] = useState<LiveFederationExchangeResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"protocol" | "propagation" | "corridors" | "regulatory">("protocol");
 
@@ -64,52 +67,44 @@ export function BricsFederationPanel() {
 
   const runFederationExchangeDemo = async () => {
     setIsSimulating(true);
+    setError(null);
     setExchangeSimulationStep(1);
 
-    // Step 1: India Node detects and creates event
-    await new Promise((r) => setTimeout(r, 600));
-    setExchangeSimulationStep(2);
-
     try {
-      // Step 2: Publish to Federation
-      const published = await apiClient.publishBricsEvent({
+      // Step 1: Formulate source incident in India
+      await new Promise((r) => setTimeout(r, 400));
+      setExchangeSimulationStep(2);
+
+      // Execute authentic backend exchange pipeline (Open-Meteo + Lagrangian Model + China Delivery)
+      const res = await apiClient.triggerLiveFederationExchange({
         sourceCountry: "IND",
+        targetCountry: "CHN",
         latitude: 28.6289,
         longitude: 77.2065,
-        locality: "Delhi-NCR Airshed Industrial & Stubble Corridor",
+        locality: "Delhi-NCR Airshed Industrial & Stubble Corridor, India",
         pollutionType: "crop_burning",
-        pollutantValues: {
-          pm2_5: 395,
-          pm10: 510,
-          no2: 88,
-          co: 3.6,
-          aqi: 435
-        },
+        pm2_5: 395,
+        pm10: 510,
+        aqi: 435,
         severity: "critical",
-        confidence: 0.96,
-        sourceType: "satellite_sentinel5p",
-        windDirectionDeg: 305,
-        windSpeedKmh: 20,
-        predictedAffectedRegion: "North-East Transboundary Airshed Corridor",
-        predictionConfidence: 0.91,
-        targetCountries: ["ALL", "CHN", "RUS"],
-        title: "High-Altitude Stubble & Industrial Plume Alert",
-        description: "Standardized cross-border aerosol alert verified by multi-satellite Sentinel-5P fusion."
+        horizonHours: 12
       });
 
-      setSimulatedEvent(published.event);
-      await new Promise((r) => setTimeout(r, 700));
+      if (!res.success) {
+        throw new Error("Backend federation exchange pipeline returned failure.");
+      }
+
       setExchangeSimulationStep(3);
+      await new Promise((r) => setTimeout(r, 450));
 
-      // Step 3: China Node receives relevant event
-      const chinaReceipt = await apiClient.getBricsEventsRelevantToCountry("CHN");
-      await new Promise((r) => setTimeout(r, 600));
       setExchangeSimulationStep(4);
+      setExchangeResult(res);
 
-      // Refresh event list to show new event
+      // Refresh node and event counts from live backend
       await loadFederationData();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Simulation failed.");
+      setError(err instanceof Error ? err.message : "Federation exchange failed.");
+      setExchangeResult(null);
     } finally {
       setIsSimulating(false);
     }
@@ -336,15 +331,51 @@ export function BricsFederationPanel() {
           </div>
         </div>
 
-        {simulatedEvent && exchangeSimulationStep >= 4 && (
-          <div className="mt-3 p-3 rounded-xl border border-emerald-400/30 bg-emerald-950/60 text-xs text-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
-              <span>
-                <strong>Exchange Verified:</strong> Event <code className="bg-black/40 px-1 py-0.5 rounded text-emerald-300">{simulatedEvent.eventId}</code> successfully published by India Node and ingested by China Node.
+        {exchangeResult && exchangeSimulationStep >= 4 && (
+          <div className="mt-3.5 p-4 rounded-2xl border border-emerald-400/30 bg-emerald-950/60 text-xs text-emerald-200 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-emerald-400/20 pb-2.5">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
+                <span>
+                  <strong>Exchange Verified:</strong> Event <code className="bg-black/40 px-1 py-0.5 rounded text-emerald-300 font-mono">{exchangeResult.event.eventId}</code> published by 🇮🇳 India and ingested by 🇨🇳 China Node.
+                </span>
+              </div>
+              <span className="text-[10px] rounded-md bg-emerald-400/20 px-2 py-0.5 font-bold uppercase tracking-wider text-emerald-300">
+                {exchangeResult.meteorologicalContext.dataStatus === "AVAILABLE" && exchangeResult.meteorologicalContext.source.includes("Open-Meteo") ? "● Real-World Open-Meteo Telemetry" : "● Simulated Atmospheric Data"}
               </span>
             </div>
-            <span className="text-[10px] text-slate-400 font-mono">PM2.5: {simulatedEvent.pollutantValues.pm2_5} µg/m³ · AQI {simulatedEvent.pollutantValues.aqi}</span>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-[11px]">
+              <div className="rounded-xl border border-white/10 bg-black/40 p-2.5">
+                <div className="text-[10px] uppercase font-bold text-slate-400">Atmospheric Vectors</div>
+                <div className="font-semibold text-white mt-0.5">
+                  {exchangeResult.meteorologicalContext.windSpeedKmh} km/h from {exchangeResult.meteorologicalContext.windDirectionCompass} ({exchangeResult.meteorologicalContext.windDirectionDegrees}°)
+                </div>
+                <div className="text-[10px] text-slate-400 mt-0.5">
+                  Temp: {exchangeResult.meteorologicalContext.temperatureC}°C · Humidity: {exchangeResult.meteorologicalContext.relativeHumidityPercent}%
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-white/10 bg-black/40 p-2.5">
+                <div className="text-[10px] uppercase font-bold text-slate-400">Lagrangian Dispersion Model</div>
+                <div className="font-semibold text-purple-300 mt-0.5">
+                  {exchangeResult.crossBorderPrediction ? `Impact: ${exchangeResult.crossBorderPrediction.affectedCountryName} in ~${exchangeResult.crossBorderPrediction.estimatedArrivalHours}h` : `Dispersion: ${exchangeResult.propagationResult.totalDistanceKm} km range`}
+                </div>
+                <div className="text-[10px] text-slate-400 mt-0.5">
+                  Remaining PM2.5: {exchangeResult.crossBorderPrediction?.predictedPollutionLevel.pm2_5 ?? exchangeResult.event.pollutantValues.pm2_5} µg/m³
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-white/10 bg-black/40 p-2.5">
+                <div className="text-[10px] uppercase font-bold text-slate-400">Target Node Ingestion</div>
+                <div className="font-semibold text-emerald-300 mt-0.5">
+                  🇨🇳 China ({exchangeResult.targetNodeReceipt.status})
+                </div>
+                <div className="text-[10px] text-slate-400 mt-0.5 font-mono">
+                  Verified at: {new Date(exchangeResult.targetNodeReceipt.receivedAt).toLocaleTimeString()}
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>

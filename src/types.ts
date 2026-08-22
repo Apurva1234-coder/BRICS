@@ -1365,3 +1365,47 @@ export interface CreateRegulatoryAlertInput {
   targetAuthorityId?: string;
 }
 
+export interface LiveFederationExchangeInput {
+  reportId?: string;
+  sourceCountry?: BricsCountryCode;
+  targetCountry?: BricsCountryCode;
+  latitude?: number;
+  longitude?: number;
+  locality?: string;
+  pollutionType?: BricsPollutionType;
+  pm2_5?: number;
+  pm10?: number;
+  aqi?: number;
+  severity?: BricsFederationSeverity;
+  horizonHours?: number;
+  windSpeedKmh?: number;
+  windDirectionDeg?: number;
+}
+
+export interface LiveFederationExchangeStepTrace {
+  step: number;
+  name: string;
+  status: "SUCCESS" | "FAILED" | "IN_PROGRESS";
+  details: string;
+  timestamp: string;
+}
+
+export interface LiveFederationExchangeResponse {
+  success: boolean;
+  event: BricsFederationEvent;
+  meteorologicalContext: MeteorologicalContext;
+  propagationResult: PropagationResult;
+  crossBorderPrediction?: CrossBorderImpactPrediction;
+  targetNodeReceipt: {
+    countryCode: string;
+    countryName: string;
+    flag: string;
+    status: string;
+    receivedAt: string;
+    parsedForAction: boolean;
+    sourceVerified: boolean;
+  };
+  executionTrace: LiveFederationExchangeStepTrace[];
+  timestamp: string;
+}
+

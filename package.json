@@ -36,6 +36,7 @@
     "test:propagation": "tsx scripts/test-propagation.ts",
     "test:corridors": "tsx scripts/test-corridors.ts",
     "test:regulatory": "tsx scripts/test-regulatory.ts",
+    "test:federation-e2e": "tsx scripts/test-federation-e2e.ts",
     "test:a11y": "playwright test tests/accessibility.spec.ts",
     "test:a11y:headed": "playwright test tests/accessibility.spec.ts --headed",
     "test:sentinel-auth": "tsx scripts/test-sentinel-auth.ts",

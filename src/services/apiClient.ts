@@ -40,7 +40,9 @@ import type {
   RegulatoryResource,
   RegulatoryAlert,
   CreateRegulatoryAlertInput,
-  AlertResponseStatus
+  AlertResponseStatus,
+  LiveFederationExchangeInput,
+  LiveFederationExchangeResponse
 } from "../types";
 import { frontendEnv } from "./env";
 
@@ -381,6 +383,12 @@ export const apiClient = {
     }>(`/api/brics/federation/events/relevant/${encodeURIComponent(countryCode)}`),
   getBricsFederationStatus: () =>
     request<{ success: boolean; status: BricsFederationStatusResponse }>("/api/brics/federation/status"),
+  triggerLiveFederationExchange: (payload?: LiveFederationExchangeInput) =>
+    request<LiveFederationExchangeResponse>("/api/brics/federation/exchange-live", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload || {})
+    }),
 
   // Meteorological Intelligence Layer API
   getMeteorology: (latitude: number, longitude: number, timestamp?: string) =>
