@@ -1018,3 +1018,137 @@ export interface MeteorologicalProvider {
   }>;
 }
 
+// ==========================================
+// Stage 3: Cross-Border Propagation Types
+// ==========================================
+
+export type PropagationImpactLevel = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+
+export interface PropagationStep {
+  stepNumber: number;
+  hoursElapsed: number;
+  timestamp: string;
+  latitude: number;
+  longitude: number;
+  distanceFromSourceKm: number;
+  plumeRadiusKm: number;
+  currentCountryCode: string;
+  currentCountryName: string;
+  currentCountryFlag: string;
+  estimatedPm2_5: number;
+  estimatedAqi: number;
+  impactLevel: PropagationImpactLevel;
+  dilutionFactor: number;
+  segmentWindSpeedKmh: number;
+  segmentWindDirectionDeg: number;
+  segmentCompass: string;
+}
+
+export interface CrossBorderImpactPrediction {
+  predictionId: string;
+  eventId?: string;
+  sourceCountry: string;
+  sourceCountryName: string;
+  sourceFlag: string;
+  sourceLocation: {
+    latitude: number;
+    longitude: number;
+    locality?: string;
+  };
+  sourcePollutant: string;
+  sourcePollutionLevel: {
+    pm2_5: number;
+    aqi?: number;
+    severity: string;
+  };
+  affectedCountry: string;
+  affectedCountryName: string;
+  affectedFlag: string;
+  affectedRegion: string;
+  borderCrossingPoint: {
+    latitude: number;
+    longitude: number;
+    distanceFromSourceKm: number;
+  };
+  estimatedArrivalHours: number;
+  estimatedArrivalTime: string;
+  predictedPollutionLevel: {
+    pm2_5: number;
+    aqi?: number;
+    remainingRatio: number;
+  };
+  predictedImpactCategory: PropagationImpactLevel;
+  riskScore: number;
+  riskCategory: PropagationImpactLevel;
+  confidence: number;
+  confidenceLevel: "HIGH" | "MEDIUM" | "LOW";
+  windConditions: {
+    speedKmh: number;
+    directionDeg: number;
+    compass: string;
+  };
+  environmentalFactors: {
+    temperatureC?: number;
+    humidityPercent?: number;
+    precipitationMm?: number;
+  };
+  explanation: string;
+  disclaimer: string;
+  generatedAt: string;
+}
+
+export interface PropagationInput {
+  sourceLatitude: number;
+  sourceLongitude: number;
+  sourceCountryCode?: string;
+  sourceLocality?: string;
+  initialPm2_5?: number;
+  initialAqi?: number;
+  initialSeverity?: BricsFederationSeverity;
+  pollutionType?: BricsPollutionType | string;
+  timestamp?: string;
+  horizonHours?: number;
+  timeStepHours?: number;
+  meteorology?: MeteorologicalContext;
+  hourlyForecast?: HourlyForecastPoint[];
+  eventId?: string;
+}
+
+export interface PropagationResult {
+  predictionId: string;
+  source: {
+    latitude: number;
+    longitude: number;
+    countryCode: string;
+    countryName: string;
+    flag: string;
+    locality?: string;
+  };
+  horizonHours: number;
+  timeStepHours: number;
+  totalDistanceKm: number;
+  dominantDirection: string;
+  steps: PropagationStep[];
+  hasCrossBorderImpact: boolean;
+  crossBorderPrediction: CrossBorderImpactPrediction | null;
+  allIntersectedCountries: Array<{
+    countryCode: string;
+    countryName: string;
+    flag: string;
+    entryHour: number;
+    distanceKm: number;
+  }>;
+  modelMetadata: {
+    name: string;
+    version: string;
+    type: "physics_rule_based" | "ml_hybrid";
+  };
+  generatedAt: string;
+}
+
+export interface PollutionPropagationModel {
+  name: string;
+  version: string;
+  predictPropagation(input: PropagationInput): Promise<PropagationResult>;
+}
+

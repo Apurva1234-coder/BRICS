@@ -27,7 +27,11 @@ import type {
   MeteorologicalContext,
   HourlyForecastPoint,
   PollutionMovementEstimate,
-  MeteorologicalPredictionResponse
+  MeteorologicalPredictionResponse,
+  PropagationInput,
+  PropagationResult,
+  CrossBorderImpactPrediction,
+  PropagationStep
 } from "../types";
 import { frontendEnv } from "./env";
 
@@ -394,5 +398,49 @@ export const apiClient = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
-    })
+    }),
+
+  // Cross-Border Pollution Propagation Layer API
+  predictPropagation: (payload: PropagationInput) =>
+    request<PropagationResult>("/api/propagation/predict", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    }),
+  getPropagationEvents: () =>
+    request<{
+      success: boolean;
+      count: number;
+      predictions: CrossBorderImpactPrediction[];
+      timestamp: string;
+    }>("/api/propagation/events"),
+  getAffectedCountries: () =>
+    request<{
+      success: boolean;
+      count: number;
+      affectedCountries: Array<{
+        countryCode: string;
+        countryName: string;
+        flag: string;
+        incomingPlumesCount: number;
+        maxRiskScore: number;
+        highestRiskCategory: string;
+        earliestArrivalHours: number;
+      }>;
+      timestamp: string;
+    }>("/api/propagation/affected-countries"),
+  getIncomingPlumes: (countryCode: string) =>
+    request<{
+      success: boolean;
+      countryCode: string;
+      count: number;
+      incomingPlumes: CrossBorderImpactPrediction[];
+      timestamp: string;
+    }>(`/api/propagation/incoming/${encodeURIComponent(countryCode)}`),
+  getEventPropagation: (eventId: string, horizonHours?: number) =>
+    request<{
+      success: boolean;
+      event: BricsFederationEvent;
+      propagation: PropagationResult;
+    }>(`/api/propagation/event/${encodeURIComponent(eventId)}${horizonHours ? `?horizonHours=${horizonHours}` : ""}`)
 };

@@ -8,6 +8,7 @@ import { satelliteRouter } from "./routes/satellite.js";
 import { satellitePollutionRouter } from "./routes/satellitePollution.js";
 import { bricsFederationRouter } from "./routes/bricsFederation.js";
 import { meteorologyRouter } from "./routes/meteorology.js";
+import { propagationRouter } from "./routes/propagation.js";
 import { validateEnv } from "./utils/env.js";
 import { aiDebugLimiter, generalApiLimiter, reportSubmissionLimiter } from "./middleware/rateLimits.js";
 // Initialize Firebase Admin SDK at startup (logs auth mode: Firestore vs in-memory)
@@ -49,6 +50,7 @@ app.use("/api", satelliteRouter);
 app.use("/api", satellitePollutionRouter);
 app.use("/api/brics/federation", bricsFederationRouter);
 app.use("/api/meteorology", meteorologyRouter);
+app.use("/api/propagation", propagationRouter);
 
 app.use(express.static(path.join(process.cwd(), "dist")));
 

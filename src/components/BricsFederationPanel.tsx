@@ -17,8 +17,10 @@ import {
   CheckCircle2,
   AlertTriangle,
   Send,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Compass
 } from "lucide-react";
+import { CrossBorderPropagationPanel } from "./CrossBorderPropagationPanel";
 
 export function BricsFederationPanel() {
   const [nodes, setNodes] = useState<BricsCountryNode[]>([]);
@@ -31,6 +33,7 @@ export function BricsFederationPanel() {
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulatedEvent, setSimulatedEvent] = useState<BricsFederationEvent | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"protocol" | "propagation">("protocol");
 
   const loadFederationData = async () => {
     setLoading(true);
@@ -151,6 +154,39 @@ export function BricsFederationPanel() {
         </div>
       </div>
 
+      {/* ── Sub-Navigation Tabs ── */}
+      <div className="flex items-center gap-2 border-b border-white/10 pb-3">
+        <button
+          type="button"
+          onClick={() => setActiveTab("protocol")}
+          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition ${
+            activeTab === "protocol"
+              ? "bg-emerald-400/20 text-emerald-300 ring-1 ring-emerald-400/40 shadow-sm"
+              : "text-slate-400 hover:text-white hover:bg-white/5"
+          }`}
+        >
+          <Radio size={14} />
+          <span>Federation Protocol & Nodes</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("propagation")}
+          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition ${
+            activeTab === "propagation"
+              ? "bg-cyan-400/20 text-cyan-300 ring-1 ring-cyan-400/40 shadow-sm"
+              : "text-slate-400 hover:text-white hover:bg-white/5"
+          }`}
+        >
+          <Wind size={14} />
+          <span>Cross-Border Propagation Model (Stage 3)</span>
+        </button>
+      </div>
+
+      {activeTab === "propagation" ? (
+        <CrossBorderPropagationPanel />
+      ) : (
+        <>
       {error && (
         <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-200 flex items-center gap-2">
           <AlertTriangle size={16} className="text-red-400 shrink-0" />
@@ -494,6 +530,8 @@ export function BricsFederationPanel() {
           })}
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 }

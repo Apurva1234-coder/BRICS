@@ -17,7 +17,8 @@ import type {
   PollutionReport,
   PollutionSituation,
   SensitiveLocation,
-  PollutionMovementEstimate
+  PollutionMovementEstimate,
+  CrossBorderImpactPrediction
 } from "../types";
 import { ForecastPanel } from "./ForecastPanel";
 import { CpcbLayerPanel } from "./CpcbLayerPanel";
@@ -901,6 +902,24 @@ export function LocalLeafletMap({
   const legendRef = useRef<HTMLDivElement>(null);
   const mapOverlayRef = useRef<HTMLDivElement>(null);
   const [movementPrediction, setMovementPrediction] = useState<PollutionMovementEstimate | null>(null);
+  const [crossBorderPlumes, setCrossBorderPlumes] = useState<CrossBorderImpactPrediction[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiClient
+      .getPropagationEvents()
+      .then((res) => {
+        if (!cancelled && res.predictions) {
+          setCrossBorderPlumes(res.predictions);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setCrossBorderPlumes([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -1670,6 +1689,33 @@ export function LocalLeafletMap({
               </Circle>
             </>
           )}
+
+          {/* Stage 3: Cross-Border Plume Corridors & Border Crossings */}
+          {crossBorderPlumes.map((plume) => (
+            <Fragment key={plume.predictionId}>
+              {/* Border crossing alert icon */}
+              <Marker
+                position={[plume.borderCrossingPoint.latitude, plume.borderCrossingPoint.longitude]}
+                icon={L.divIcon({
+                  className: "",
+                  html: `
+                    <div style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:999px;background:#0f172a;border:2px solid #f97316;box-shadow:0 0 12px #f97316aa;font-size:13px;cursor:pointer;">
+                      ⚠️
+                    </div>
+                  `,
+                  iconAnchor: [15, 15],
+                  iconSize: [30, 30]
+                })}
+              >
+                <Tooltip direction="top" offset={[0, -14]} opacity={0.95}>
+                  <div className="text-[11px] font-sans font-bold">
+                    <span>⚠️ {plume.sourceFlag} → {plume.affectedFlag} {plume.affectedCountryName} Border Crossing</span>
+                    <span className="block text-[10px] text-amber-300 font-normal">Arrival: ~{plume.estimatedArrivalHours}h ({plume.riskCategory} Risk · {plume.predictedPollutionLevel.pm2_5} µg/m³)</span>
+                  </div>
+                </Tooltip>
+              </Marker>
+            </Fragment>
+          ))}
         </MapContainer>
 
         {/* Meteorological Movement Legend (shown when movement prediction is active) */}
