@@ -15,7 +15,8 @@ import type {
   ForecastStationItem,
   ForecastHorizon,
   PollutionReport,
-  PollutionSituation
+  PollutionSituation,
+  SensitiveLocation
 } from "../types";
 import { ForecastPanel } from "./ForecastPanel";
 import { CpcbLayerPanel } from "./CpcbLayerPanel";
@@ -23,6 +24,7 @@ import { formatAge } from "../services/airQualityDisplay";
 import { reportPhotoUrl, resolveMediaUrl } from "../utils/mediaUrl";
 import { DraggableMobileAqiPanel } from "./DraggableMobileAqiPanel";
 import { BRICS_COUNTRIES, type BricsCountry } from "../data/bricsCountries";
+import { findSensitiveLocationsClient } from "../utils/situationClient";
 
 export type PublicMapMode = "global" | "situations" | "reports" | "air" | "satellite";
 type MapMode = PublicMapMode;
@@ -362,14 +364,45 @@ const SITUATION_PRIORITY_COLORS: Record<string, { fill: string; glow: string; ri
   low:      { fill: "#00e07a", glow: "rgba(0,224,122,0.45)", ring: "rgba(0,224,122,0.15)" }
 };
 
+const SENSITIVE_ICON_COLORS: Record<string, { bg: string; border: string; icon: string }> = {
+  hospital: { bg: "#fee2e2", border: "#ef4444", icon: "🏥" },
+  school: { bg: "#e0f2fe", border: "#0284c7", icon: "🏫" },
+  childcare: { bg: "#fef3c7", border: "#f59e0b", icon: "👶" },
+  elderly_care: { bg: "#f3e8ff", border: "#a855f7", icon: "👵" }
+};
+
+function sensitiveLocationMarkerIcon(loc: SensitiveLocation) {
+  const conf = SENSITIVE_ICON_COLORS[loc.category] || SENSITIVE_ICON_COLORS.school;
+  return L.divIcon({
+    className: "",
+    html: `
+      <div style="
+        display:flex;align-items:center;justify-content:center;
+        width:28px;height:28px;border-radius:50%;
+        background:${conf.bg};border:2px solid ${conf.border};
+        box-shadow:0 2px 8px rgba(0,0,0,0.35);font-size:14px;
+        cursor:pointer;transform:translate3d(0,0,0);
+      ">
+        ${conf.icon}
+      </div>
+    `,
+    iconAnchor: [14, 14],
+    iconSize: [28, 28]
+  });
+}
+
 function situationMarkerIcon(situation: PollutionSituation, selected: boolean) {
   const pal = SITUATION_PRIORITY_COLORS[situation.priority] || SITUATION_PRIORITY_COLORS.high;
   const score = Math.min(100, situation.situationScore ?? 50);
   const base = selected ? 52 : Math.max(38, Math.min(52, 34 + score / 8));
   const inner = Math.round(base * 0.62);
+  const isRecurring = Boolean(situation.recurrence?.isRecurringHotspot);
   const pulse = selected
     ? `<div style="position:absolute;inset:-${Math.round(base*0.28)}px;border-radius:50%;background:${pal.ring};animation:ping 1.4s cubic-bezier(0,0,0.2,1) infinite;"></div>`
     : `<div style="position:absolute;inset:-${Math.round(base*0.18)}px;border-radius:50%;background:${pal.ring};"></div>`;
+  const recurringBadge = isRecurring
+    ? `<span title="Recurring hotspot" style="position:absolute;top:-4px;right:-4px;font-size:10px;line-height:1;background:#0f172a;border-radius:50%;padding:2px;border:1px solid #f97316;z-index:20;">🔁</span>`
+    : "";
   return L.divIcon({
     className: "",
     html: `
@@ -379,6 +412,7 @@ function situationMarkerIcon(situation: PollutionSituation, selected: boolean) {
       </style>
       <div style="position:relative;display:flex;align-items:center;justify-content:center;width:${base}px;height:${base}px;">
         ${pulse}
+        ${recurringBadge}
         <div style="
           position:relative;z-index:10;
           width:${base}px;height:${base}px;
@@ -1116,6 +1150,38 @@ export function LocalLeafletMap({
     [validReports]
   );
 
+  const activeContextLocation = useMemo(() => {
+    if (selectedSituation) {
+      const locations =
+        selectedSituation.sensitiveLocations?.locations && selectedSituation.sensitiveLocations.locations.length > 0
+          ? selectedSituation.sensitiveLocations.locations
+          : findSensitiveLocationsClient(selectedSituation.centerLat, selectedSituation.centerLng, 1000).locations;
+      return {
+        lat: selectedSituation.centerLat,
+        lng: selectedSituation.centerLng,
+        label: selectedSituation.placeLabel,
+        radiusMeters: selectedSituation.sensitiveLocations?.primaryImpactRadiusMeters ?? 1000,
+        sensitiveLocations: locations,
+        recurrence: selectedSituation.recurrence
+      };
+    }
+    if (selectedReport) {
+      const locations =
+        selectedReport.sensitiveLocations?.locations && selectedReport.sensitiveLocations.locations.length > 0
+          ? selectedReport.sensitiveLocations.locations
+          : findSensitiveLocationsClient(selectedReport.lat, selectedReport.lng, 1000).locations;
+      return {
+        lat: selectedReport.lat,
+        lng: selectedReport.lng,
+        label: selectedReport.areaText,
+        radiusMeters: selectedReport.sensitiveLocations?.primaryImpactRadiusMeters ?? 1000,
+        sensitiveLocations: locations,
+        recurrence: selectedReport.recurrence
+      };
+    }
+    return null;
+  }, [selectedSituation, selectedReport]);
+
   return (
     <div ref={mapOverlayRef} className="relative w-full h-full">
       <aside className="absolute top-4 right-4 z-[700] w-[220px] max-w-[calc(100%-2rem)] rounded-2xl border border-white/10 bg-slate-950/95 p-3 shadow-2xl backdrop-blur-xl lg:w-[230px]">
@@ -1376,6 +1442,45 @@ export function LocalLeafletMap({
                 );
               })
             : null}
+
+          {/* Contextual Impact Radius & Sensitive Locations Overlay */}
+          {activeContextLocation && (
+            <>
+              <Circle
+                center={[activeContextLocation.lat, activeContextLocation.lng]}
+                radius={activeContextLocation.radiusMeters}
+                pathOptions={{
+                  color: "#f97316",
+                  fillColor: "#f97316",
+                  fillOpacity: 0.07,
+                  weight: 1.8,
+                  dashArray: "5, 6"
+                }}
+              />
+              {activeContextLocation.sensitiveLocations.map((loc) => (
+                <Marker
+                  key={loc.id}
+                  position={[loc.lat, loc.lng]}
+                  icon={sensitiveLocationMarkerIcon(loc)}
+                >
+                  <Tooltip direction="top" offset={[0, -14]} opacity={0.95}>
+                    <strong>{loc.name}</strong> ({loc.category.replace(/_/g, " ")}) · {loc.distanceMeters}m from incident
+                  </Tooltip>
+                  <Popup>
+                    <div style={{ minWidth: 180, color: "#0f172a" }}>
+                      <div style={{ fontWeight: 700, fontSize: 13 }}>{loc.name}</div>
+                      <div style={{ fontSize: 12, color: "#64748b", textTransform: "capitalize", marginTop: 2 }}>
+                        {loc.category.replace(/_/g, " ")} · {loc.distanceMeters}m away
+                      </div>
+                      <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
+                        Inside predicted pollution impact radius.
+                      </div>
+                    </div>
+                  </Popup>
+                </Marker>
+              ))}
+            </>
+          )}
         </MapContainer>
 
         {/* View mode menu */}

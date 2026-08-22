@@ -1,11 +1,14 @@
 import type {
   AirQualitySummary,
   CaptureEvidence,
+  ContextualPriorityContext,
   EvidenceScoreResult,
   PollutionType,
+  RecurringHotspotContext,
   ReportStatusHistoryEntry,
   ResolutionProof,
   SatelliteEvidence,
+  SensitiveLocationImpactContext,
   Severity,
   TrustLevel
 } from "../types.js";
@@ -240,4 +243,7 @@ export interface OfficerReportDto {
   statusHistory: OfficerStatusHistoryDto[];
   resolution?: OfficerResolutionDto;
   internalReviewRecommendation?: string;
+  recurrence?: RecurringHotspotContext;
+  sensitiveLocations?: SensitiveLocationImpactContext;
+  contextualPriority?: ContextualPriorityContext;
 }

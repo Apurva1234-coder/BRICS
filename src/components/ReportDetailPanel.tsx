@@ -144,6 +144,90 @@ export function ReportDetailPanel({
         </div>
       </div>
 
+      {/* Contextual Intelligence: Recurrence & Sensitive Locations */}
+      {(report.recurrence || report.sensitiveLocations || report.contextualPriority) && (
+        <div
+          className="rounded-2xl p-4 space-y-2.5"
+          style={{
+            background: "linear-gradient(135deg, rgba(249,115,22,0.06), rgba(59,130,246,0.04))",
+            border: "1px solid rgba(249,115,22,0.2)"
+          }}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+              <span>🔁</span> Contextual Intelligence
+            </span>
+            {report.contextualPriority?.priorityElevated && (
+              <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                Priority Elevated
+              </span>
+            )}
+          </div>
+
+          {report.recurrence && report.recurrence.isRecurringHotspot && (
+            <div className="flex items-start gap-2 text-[13px]">
+              <span className="mt-0.5 text-base leading-none">🔁</span>
+              <div className="space-y-0.5 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-white capitalize">
+                    {report.recurrence.classification.replace(/_/g, " ")}
+                  </span>
+                  <span className="text-[11px] text-slate-400">
+                    ({report.recurrence.similarIncidentCount} incident{report.recurrence.similarIncidentCount === 1 ? "" : "s"} / 2 km / 90d)
+                  </span>
+                </div>
+                <p className="text-[12px] text-slate-400 leading-snug">{report.recurrence.explanation}</p>
+              </div>
+            </div>
+          )}
+
+          {report.sensitiveLocations && report.sensitiveLocations.hasSensitiveLocations && (
+            <div className="flex items-start gap-2 text-[13px] pt-1.5 border-t border-white/5">
+              <span className="mt-0.5 text-base leading-none">🏫</span>
+              <div className="space-y-1 flex-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-white">Sensitive Facilities</span>
+                  <span className="text-[11px] text-slate-400">
+                    {report.sensitiveLocations.totalCount} within 1 km
+                  </span>
+                </div>
+                <p className="text-[12px] text-slate-400 leading-snug">{report.sensitiveLocations.summary}</p>
+                {report.sensitiveLocations.locations.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {report.sensitiveLocations.locations.slice(0, 3).map((loc) => (
+                      <span
+                        key={loc.id}
+                        className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-slate-300"
+                      >
+                        <span>{loc.category === "hospital" ? "🏥" : loc.category === "school" ? "🏫" : loc.category === "childcare" ? "👶" : "👵"}</span>
+                        <span className="truncate max-w-[110px]">{loc.name}</span>
+                        <span className="text-slate-500 font-mono text-[10px]">({loc.distanceMeters}m)</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {report.contextualPriority?.elevationReasons && report.contextualPriority.elevationReasons.length > 0 && (
+            <div className="pt-2 border-t border-white/5 space-y-1">
+              <span className="text-[11px] font-bold text-amber-300 uppercase tracking-wider">
+                Why Priority Escalated:
+              </span>
+              <ul className="space-y-1 text-[12px] text-slate-300">
+                {report.contextualPriority.elevationReasons.map((reason, idx) => (
+                  <li key={idx} className="flex items-start gap-1.5">
+                    <span className="text-amber-400 font-bold">•</span>
+                    <span>{reason}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+
       <SatelliteEvidenceCard
         evidence={satelliteEvidence}
         reportId={report.id}

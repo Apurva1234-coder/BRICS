@@ -621,6 +621,62 @@ export interface AqiForecastResult {
 
 export type SituationPriority = "critical" | "high" | "moderate" | "low";
 
+export type HotspotRecurrenceClassification =
+  | "no_recurring_history"
+  | "emerging_hotspot"
+  | "recurring_hotspot"
+  | "persistent_hotspot";
+
+export interface RecurringHotspotContext {
+  isRecurringHotspot: boolean;
+  classification: HotspotRecurrenceClassification;
+  recurrenceScore: number;
+  similarIncidentCount: number;
+  verifiedIncidentCount: number;
+  activeIncidentCount: number;
+  radiusMeters: number;
+  windowDays: number;
+  earliestIncidentAt?: string;
+  latestIncidentAt?: string;
+  observedPollutionTypes: PollutionType[];
+  explanation: string;
+  reasons: string[];
+  historicalIncidentIds: string[];
+}
+
+export type SensitiveLocationCategory = "school" | "hospital" | "childcare" | "elderly_care";
+
+export interface SensitiveLocation {
+  id: string;
+  name: string;
+  category: SensitiveLocationCategory;
+  lat: number;
+  lng: number;
+  distanceMeters: number;
+  impactRadiusMeters: number;
+  source: "reference_registry" | "osm_overpass" | "curated_demo";
+}
+
+export interface SensitiveLocationImpactContext {
+  hasSensitiveLocations: boolean;
+  impactScore: number;
+  totalCount: number;
+  categoryCounts: Record<SensitiveLocationCategory, number>;
+  locations: SensitiveLocation[];
+  primaryImpactRadiusMeters: number;
+  summary: string;
+  reasons: string[];
+  affectedFacilitiesSummary: string[];
+}
+
+export interface ContextualPriorityContext {
+  basePriority: string;
+  finalPriority: string;
+  priorityElevated: boolean;
+  elevationReasons: string[];
+  explanation: string;
+}
+
 export interface PollutionSituation {
   id: string;
   rank: number;
@@ -657,10 +713,13 @@ export interface PollutionSituation {
     aqiSupportScore: number;
   };
 
-
   effects: string[];
   recommendedActions: string[];
   statusSummary: string;
+
+  recurrence?: RecurringHotspotContext;
+  sensitiveLocations?: SensitiveLocationImpactContext;
+  contextualPriority?: ContextualPriorityContext;
 }
 
 export interface PollutionReport {
@@ -710,6 +769,9 @@ export interface PollutionReport {
   satelliteEvidence?: SatelliteEvidence;
   resolvedAt?: string;
   reward?: { points: number; transactionId: string; reason: string; awardedAt: string };
+  recurrence?: RecurringHotspotContext;
+  sensitiveLocations?: SensitiveLocationImpactContext;
+  contextualPriority?: ContextualPriorityContext;
 }
 
 export interface DraftReport {

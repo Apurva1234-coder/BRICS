@@ -1,5 +1,8 @@
 import type { PollutionReport, PollutionSituation, PollutionType, Severity, SituationPriority } from "../types.js";
 import { distanceMeters } from "../utils/geo.js";
+import { analyzeRecurringHotspot } from "./recurringHotspotService.js";
+import { evaluateSensitiveLocationsSync } from "./sensitiveLocationService.js";
+import { evaluateSituationContextualPriority } from "./contextualPriorityService.js";
 
 // ─── Active statuses that count toward situation ranking ──────────────────────
 const ACTIVE_STATUSES = new Set([
@@ -235,7 +238,7 @@ function clusterReports(activeReports: PollutionReport[], radiusMeters = 150): P
 }
 
 // ─── Build one situation from a cluster ───────────────────────────────────────
-function buildSituation(cluster: PollutionReport[], id: string): PollutionSituation {
+function buildSituation(cluster: PollutionReport[], id: string, allReports: PollutionReport[] = []): PollutionSituation {
   const centerLat = cluster.reduce((s, r) => s + r.lat, 0) / cluster.length;
   const centerLng = cluster.reduce((s, r) => s + r.lng, 0) / cluster.length;
 
@@ -271,10 +274,32 @@ function buildSituation(cluster: PollutionReport[], id: string): PollutionSituat
   
   score = Math.min(100, Math.max(0, score));
 
+  const basePriority = priorityFromScore(score);
+
+  // Compute deterministic recurring hotspot intelligence (2 km / 90 days)
+  const recurrence = analyzeRecurringHotspot(
+    { lat: centerLat, lng: centerLng, pollutionType: type, createdAt: latestAt },
+    allReports,
+    { radiusMeters: 2000, windowDays: 90 }
+  );
+
+  // Compute sensitive location impact context (1 km default primary radius)
+  const sensitiveLocations = evaluateSensitiveLocationsSync(centerLat, centerLng, 1000);
+
+  // Evaluate contextual priority modifier
+  const contextualPriority = evaluateSituationContextualPriority({
+    basePriority,
+    dominantSeverity: severity,
+    evidenceScore: breakdown.evidenceScore,
+    situationScore: score,
+    recurrence,
+    sensitiveLocations
+  });
+
   return {
     id,
     rank: 0, // assigned later
-    priority: priorityFromScore(score),
+    priority: contextualPriority.finalPriority as SituationPriority,
     situationScore: score,
     centerLat,
     centerLng,
@@ -293,7 +318,10 @@ function buildSituation(cluster: PollutionReport[], id: string): PollutionSituat
     scoreBreakdown: breakdown,
     effects: EFFECTS_MAP[type] ?? [],
     recommendedActions: ACTIONS_MAP[type] ?? [],
-    statusSummary: statusSummary(cluster, unresolved.length)
+    statusSummary: statusSummary(cluster, unresolved.length),
+    recurrence,
+    sensitiveLocations,
+    contextualPriority
   };
 }
 
@@ -303,7 +331,7 @@ export function buildRankedSituations(reports: PollutionReport[]): PollutionSitu
   const clusters = clusterReports(active);
 
   const situations = clusters.map((cluster, i) =>
-    buildSituation(cluster, `SIT-${String(i + 1).padStart(3, "0")}`)
+    buildSituation(cluster, `SIT-${String(i + 1).padStart(3, "0")}`, reports)
   );
 
   situations.sort((a, b) => {

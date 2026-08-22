@@ -13,7 +13,10 @@ import type {
   PollutionSituation,
   ReportStatus,
   StateForecastResponse,
-  SatelliteEvidence
+  SatelliteEvidence,
+  RecurringHotspotContext,
+  SensitiveLocationImpactContext,
+  ContextualPriorityContext
 } from "../types";
 import { frontendEnv } from "./env";
 
@@ -238,6 +241,13 @@ export const apiClient = {
   },
   getSituation: (id: string) =>
     request<SituationDetailResponse>(`/api/situations/${id}`),
+  getReportContextualIntelligence: (id: string) =>
+    request<{
+      reportId: string;
+      recurrence: RecurringHotspotContext;
+      sensitiveLocations: SensitiveLocationImpactContext;
+      contextualPriority: ContextualPriorityContext;
+    }>(`/api/reports/${id}/contextual-intelligence`),
   getMyReports: (userId: string) =>
     request<PollutionReport[]>(`/api/reports/mine?userId=${encodeURIComponent(userId)}`),
   getRewards: (userId: string) => request<{ profile: RewardProfile | null }>(`/api/users/${encodeURIComponent(userId)}/rewards`),

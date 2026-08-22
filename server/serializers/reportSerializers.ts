@@ -356,7 +356,10 @@ export function toOfficerReportDto(report: PollutionReport): OfficerReportDto {
     actionLog: (report.actionLog ?? []).map(toOfficerActionLogDto),
     statusHistory: (report.statusHistory ?? []).map(toOfficerStatusHistoryDto),
     ...(resolution ? { resolution } : {}),
-    ...(report.gemini.needs_manual_review ? { internalReviewRecommendation: report.gemini.municipal_action } : {})
+    ...(report.gemini.needs_manual_review ? { internalReviewRecommendation: report.gemini.municipal_action } : {}),
+    ...(report.recurrence ? { recurrence: structuredClone(report.recurrence) } : {}),
+    ...(report.sensitiveLocations ? { sensitiveLocations: structuredClone(report.sensitiveLocations) } : {}),
+    ...(report.contextualPriority ? { contextualPriority: structuredClone(report.contextualPriority) } : {})
   };
 }
 

@@ -44,6 +44,9 @@ import { getCurrentAqiSnapshot, getCurrentAqiStatus, refreshCurrentAqiSnapshot }
 import type { AirQualitySummary, CpcbPollutantCode, PollutionReport, ReportStatus } from "../types.js";
 import { distanceMeters } from "../utils/geo.js";
 import { awardResolutionPoints, getLeaderboard, getPointsHistory, getRewards } from "../services/rewardsService.js";
+import { analyzeRecurringHotspot } from "../services/recurringHotspotService.js";
+import { evaluateSensitiveLocationsSync } from "../services/sensitiveLocationService.js";
+import { evaluateReportContextualPriority } from "../services/contextualPriorityService.js";
 
 export const reportsRouter = Router();
 
@@ -357,13 +360,34 @@ reportsRouter.post("/reports", (req, res) => {
       const locality = buildLocalitySummary({ ...report, nearby }, existingReports);
       const status = decision.status;
       const nextTrustLevel = decision.trustLevel === "Needs Review" ? "Needs Review" : evidence.trustLevel;
+      const baseReportPriority = priorityForHotspotScore(hotspotScore, nextTrustLevel);
+
+      const recurrence = analyzeRecurringHotspot(
+        { id: report.id, lat: reportLat, lng: reportLng, pollutionType: gemini.pollution_type, createdAt: report.createdAt },
+        existingReports,
+        { radiusMeters: 2000, windowDays: 90 }
+      );
+      const sensitiveLocations = evaluateSensitiveLocationsSync(reportLat, reportLng, 1000);
+      const contextualPriority = evaluateReportContextualPriority({
+        basePriority: baseReportPriority,
+        severity: gemini.severity,
+        evidenceScore: evidence.evidenceScore,
+        trustLevel: nextTrustLevel,
+        hotspotScore,
+        recurrence,
+        sensitiveLocations
+      });
+
       const updated = await updateReport(report.id, {
         nearby,
         locality,
         hotspotScore,
         trustLevel: nextTrustLevel,
-        priority: priorityForHotspotScore(hotspotScore, nextTrustLevel),
+        priority: contextualPriority.finalPriority as "watch" | "high" | "severe" | "resolved",
         status,
+        recurrence,
+        sensitiveLocations,
+        contextualPriority,
         statusHistory: [
           { status: "submitted", label: "Report Submitted", timestamp: report.createdAt, updatedByRole: "citizen", message: "Report received." },
           ...(decision.evidenceStatus === "verified" ? [{ status: "verified", label: "Evidence Verified", timestamp: new Date().toISOString(), updatedByRole: "system" as const, message: "The submitted image and location evidence have been verified." }] : [])
@@ -956,6 +980,45 @@ reportsRouter.patch("/reports/:id/resolution-status", async (req, res) => {
   if (!award) return res.json(resolved);
   const rewarded = await updateReport(resolved.id, { reward: { points: award.transaction.points, transactionId: award.transaction.transactionId, reason: award.transaction.reason, awardedAt: award.transaction.createdAt } });
   res.json(rewarded || resolved);
+});
+
+// ── GET /api/reports/:id/contextual-intelligence ─────────────────────────────
+reportsRouter.get("/reports/:id/contextual-intelligence", (req, res) => {
+  void (async () => {
+    const report = await findReport(req.params.id);
+    if (!report) {
+      res.status(404).json({ error: "Report not found", reasonCode: "not_found" });
+      return;
+    }
+    const allReports = await listReports();
+    const recurrence = analyzeRecurringHotspot(
+      {
+        id: report.id,
+        lat: report.lat,
+        lng: report.lng,
+        pollutionType: report.gemini?.pollution_type,
+        createdAt: report.createdAt
+      },
+      allReports,
+      { radiusMeters: 2000, windowDays: 90 }
+    );
+    const sensitiveLocations = evaluateSensitiveLocationsSync(report.lat, report.lng, 1000);
+    const contextualPriority = evaluateReportContextualPriority({
+      basePriority: report.priority,
+      severity: report.gemini?.severity ?? "low",
+      evidenceScore: report.evidenceScore ?? 50,
+      trustLevel: report.trustLevel ?? "Needs Review",
+      hotspotScore: report.hotspotScore ?? 0,
+      recurrence,
+      sensitiveLocations
+    });
+    res.json({
+      reportId: report.id,
+      recurrence,
+      sensitiveLocations,
+      contextualPriority
+    });
+  })();
 });
 
 // ─── Situation routes ─────────────────────────────────────────────────────────
