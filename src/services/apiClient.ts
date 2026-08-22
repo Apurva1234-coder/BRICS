@@ -23,7 +23,11 @@ import type {
   BricsCountryCode,
   BricsPollutionType,
   BricsPollutantMetrics,
-  BricsFederationSeverity
+  BricsFederationSeverity,
+  MeteorologicalContext,
+  HourlyForecastPoint,
+  PollutionMovementEstimate,
+  MeteorologicalPredictionResponse
 } from "../types";
 import { frontendEnv } from "./env";
 
@@ -363,5 +367,32 @@ export const apiClient = {
       timestamp: string;
     }>(`/api/brics/federation/events/relevant/${encodeURIComponent(countryCode)}`),
   getBricsFederationStatus: () =>
-    request<{ success: boolean; status: BricsFederationStatusResponse }>("/api/brics/federation/status")
+    request<{ success: boolean; status: BricsFederationStatusResponse }>("/api/brics/federation/status"),
+
+  // Meteorological Intelligence Layer API
+  getMeteorology: (latitude: number, longitude: number, timestamp?: string) =>
+    request<MeteorologicalContext>(
+      `/api/meteorology?latitude=${latitude}&longitude=${longitude}${timestamp ? `&timestamp=${encodeURIComponent(timestamp)}` : ""}`
+    ),
+  getEventMeteorology: (eventId: string, horizonHours?: number) =>
+    request<{
+      success: boolean;
+      eventId: string;
+      meteorology: MeteorologicalContext;
+      prediction: PollutionMovementEstimate;
+      source: string;
+      dataStatus: string;
+    }>(`/api/meteorology/event/${encodeURIComponent(eventId)}${horizonHours ? `?horizonHours=${horizonHours}` : ""}`),
+  predictMovement: (payload: {
+    eventId?: string;
+    latitude?: number;
+    longitude?: number;
+    timestamp?: string;
+    horizonHours?: number;
+  }) =>
+    request<MeteorologicalPredictionResponse>("/api/meteorology/predict-movement", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    })
 };

@@ -873,6 +873,8 @@ export interface BricsFederationEvent {
   description?: string;
   verificationStatus: "verified" | "indicative" | "unverified";
   sharedAt: string;
+  meteorology?: MeteorologicalContext;
+  movementEstimate?: PollutionMovementEstimate;
   metadata?: Record<string, any>;
 }
 
@@ -884,5 +886,100 @@ export interface BricsFederationStatusResponse {
   crossBorderEventsCount: number;
   lastSyncAt: string;
   supportedRegions: string[];
+}
+
+// ==========================================
+// Meteorological Intelligence Layer Types
+// ==========================================
+
+export type MeteorologicalDataStatus =
+  | "AVAILABLE"
+  | "HISTORICAL_WEATHER_UNAVAILABLE"
+  | "LOCATION_UNSUPPORTED"
+  | "PROVIDER_ERROR"
+  | "DEMO_DATA";
+
+export type PrecipitationType = "NONE" | "RAIN" | "DRIZZLE" | "SNOW" | "ICE" | "HAIL" | "MIXED";
+
+export interface MeteorologicalContext {
+  source: string;
+  observedAt: string;
+  latitude: number;
+  longitude: number;
+  temperatureC: number;
+  relativeHumidityPercent: number;
+  windSpeedKmh: number;
+  windDirectionDegrees: number;
+  windDirectionCompass: string;
+  movementDirectionDegrees: number;
+  movementDirectionCompass: string;
+  precipitationMm: number;
+  precipitationType: PrecipitationType;
+  dataStatus: MeteorologicalDataStatus;
+  weatherCondition?: string;
+  visibilityKm?: number;
+  note?: string;
+}
+
+export interface HourlyForecastPoint {
+  timestamp: string;
+  hoursAhead: number;
+  temperatureC: number;
+  relativeHumidityPercent: number;
+  windSpeedKmh: number;
+  windDirectionDegrees: number;
+  windDirectionCompass: string;
+  movementDirectionDegrees: number;
+  movementDirectionCompass: string;
+  precipitationMm: number;
+  precipitationProbability?: number;
+  precipitationType: PrecipitationType;
+}
+
+export interface MovementPathPoint {
+  timestamp: string;
+  stepHours: number;
+  latitude: number;
+  longitude: number;
+  distanceFromSourceKm: number;
+  segmentSpeedKmh: number;
+  segmentBearingDegrees: number;
+  segmentCompass: string;
+}
+
+export interface PollutionMovementEstimate {
+  source: {
+    latitude: number;
+    longitude: number;
+    timestamp: string;
+  };
+  horizonHours: number;
+  dominantMovementDirection: string;
+  dominantMovementBearingDegrees: number;
+  estimatedTotalDistanceKm: number;
+  estimatedFinalLocation: {
+    latitude: number;
+    longitude: number;
+  };
+  estimatedArrivalTime: string;
+  confidence: "HIGH" | "MEDIUM" | "LOW";
+  confidenceScore: number;
+  confidenceReason: string;
+  warnings: string[];
+  movementPath: MovementPathPoint[];
+  method: "WIND_BASED_APPLICATION_ESTIMATE";
+  disclaimer: string;
+}
+
+export interface MeteorologicalPredictionResponse {
+  source: {
+    latitude: number;
+    longitude: number;
+    timestamp: string;
+  };
+  meteorology: MeteorologicalContext;
+  hourlyForecast?: HourlyForecastPoint[];
+  prediction: PollutionMovementEstimate;
+  method: "WIND_BASED_APPLICATION_ESTIMATE";
 }
 

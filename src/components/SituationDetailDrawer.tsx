@@ -9,6 +9,7 @@ import { reportPhotoUrl, resolveMediaUrl } from "../utils/mediaUrl";
 import { apiClient } from "../services/apiClient";
 import { ForecastPanel } from "./ForecastPanel";
 import { CpcbContextPanel } from "./CpcbContextPanel";
+import { MeteorologyCard } from "./MeteorologyCard";
 
 interface SituationDetailDrawerProps {
   situation: PollutionSituation;
@@ -305,6 +306,13 @@ export function SituationDetailDrawer({
           </div>
         );
       })()}
+
+      {/* Meteorological Intelligence & Movement Prediction */}
+      <MeteorologyCard
+        latitude={situation.centerLat}
+        longitude={situation.centerLng}
+        timestamp={situation.latestReportAt}
+      />
 
       {/* Suggested Department Readiness Card */}
       <div className="flex flex-col gap-1 rounded-xl p-3" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid var(--border)" }}>

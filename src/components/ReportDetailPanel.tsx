@@ -7,6 +7,7 @@ import { reportPhotoUrl, resolveMediaUrl } from "../utils/mediaUrl";
 import { apiClient } from "../services/apiClient";
 import { CpcbContextPanel } from "./CpcbContextPanel";
 import { SatelliteEvidenceCard } from "./SatelliteEvidenceCard";
+import { MeteorologyCard } from "./MeteorologyCard";
 import { useTranslation } from "react-i18next";
 
 interface ReportDetailPanelProps {
@@ -232,6 +233,12 @@ export function ReportDetailPanel({
         evidence={satelliteEvidence}
         reportId={report.id}
         onRetry={handleRetrySatellite}
+      />
+
+      <MeteorologyCard
+        latitude={report.lat}
+        longitude={report.lng}
+        timestamp={report.createdAt}
       />
 
       <CpcbContextPanel context={cpcbContext} />

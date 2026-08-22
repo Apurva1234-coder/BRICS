@@ -3,7 +3,7 @@ import { ChevronDown, Gauge, Info, LocateFixed, MapPinned, RotateCw, X } from "l
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
-import { Circle, CircleMarker, GeoJSON, MapContainer, Marker, TileLayer, useMap, useMapEvents, Popup, Tooltip } from "react-leaflet";
+import { Circle, CircleMarker, GeoJSON, MapContainer, Marker, TileLayer, useMap, useMapEvents, Popup, Tooltip, Polyline } from "react-leaflet";
 import { apiClient } from "../services/apiClient";
 import { useTranslation } from "react-i18next";
 import type {
@@ -16,7 +16,8 @@ import type {
   ForecastHorizon,
   PollutionReport,
   PollutionSituation,
-  SensitiveLocation
+  SensitiveLocation,
+  PollutionMovementEstimate
 } from "../types";
 import { ForecastPanel } from "./ForecastPanel";
 import { CpcbLayerPanel } from "./CpcbLayerPanel";
@@ -899,6 +900,41 @@ export function LocalLeafletMap({
   const [legendOpen, setLegendOpen] = useState(false);
   const legendRef = useRef<HTMLDivElement>(null);
   const mapOverlayRef = useRef<HTMLDivElement>(null);
+  const [movementPrediction, setMovementPrediction] = useState<PollutionMovementEstimate | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const target = selectedSituation
+      ? { lat: selectedSituation.centerLat, lng: selectedSituation.centerLng, time: selectedSituation.latestReportAt }
+      : selectedReport
+      ? { lat: selectedReport.lat, lng: selectedReport.lng, time: selectedReport.createdAt }
+      : null;
+
+    if (!target) {
+      setMovementPrediction(null);
+      return;
+    }
+
+    apiClient
+      .predictMovement({
+        latitude: target.lat,
+        longitude: target.lng,
+        timestamp: target.time,
+        horizonHours: 6
+      })
+      .then((res) => {
+        if (!cancelled && res.prediction) {
+          setMovementPrediction(res.prediction);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setMovementPrediction(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedSituation, selectedReport]);
 
   useEffect(() => {
     if (!selectedCountry) {
@@ -1575,7 +1611,86 @@ export function LocalLeafletMap({
               ))}
             </>
           )}
+
+          {/* Meteorological Intelligence: Estimated Movement Trajectory & Future Area */}
+          {movementPrediction && (
+            <>
+              {/* Estimated Movement Polyline */}
+              <Polyline
+                positions={movementPrediction.movementPath.map((p) => [p.latitude, p.longitude])}
+                pathOptions={{
+                  color: "#06b6d4",
+                  weight: 3.5,
+                  dashArray: "6,6",
+                  opacity: 0.9
+                }}
+              />
+
+              {/* Intermediate Step Waypoints */}
+              {movementPrediction.movementPath.slice(1).map((p, idx) => (
+                <CircleMarker
+                  key={`step-marker-${idx}`}
+                  center={[p.latitude, p.longitude]}
+                  radius={4}
+                  pathOptions={{
+                    color: "#0891b2",
+                    fillColor: "#06b6d4",
+                    fillOpacity: 1,
+                    weight: 2
+                  }}
+                >
+                  <Tooltip direction="top" offset={[0, -6]} opacity={0.95}>
+                    <span className="text-[10px] font-sans font-bold">
+                      T+{p.stepHours}h · ~{Math.round(p.distanceFromSourceKm)}km ({p.segmentCompass})
+                    </span>
+                  </Tooltip>
+                </CircleMarker>
+              ))}
+
+              {/* Estimated Future Dispersion Area */}
+              <Circle
+                center={[
+                  movementPrediction.estimatedFinalLocation.latitude,
+                  movementPrediction.estimatedFinalLocation.longitude
+                ]}
+                radius={Math.max(1200, movementPrediction.estimatedTotalDistanceKm * 120)}
+                pathOptions={{
+                  color: "#06b6d4",
+                  fillColor: "#06b6d4",
+                  fillOpacity: 0.12,
+                  weight: 2,
+                  dashArray: "5,5"
+                }}
+              >
+                <Tooltip direction="top" offset={[0, -10]} opacity={0.95} permanent>
+                  <span className="text-[10px] font-sans font-black text-cyan-400">
+                    Estimated {movementPrediction.horizonHours}h Area (~{movementPrediction.estimatedTotalDistanceKm}km {movementPrediction.dominantMovementDirection})
+                  </span>
+                </Tooltip>
+              </Circle>
+            </>
+          )}
         </MapContainer>
+
+        {/* Meteorological Movement Legend (shown when movement prediction is active) */}
+        {movementPrediction && (
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[400] flex items-center gap-3 rounded-full border border-cyan-500/30 bg-slate-950/85 px-4 py-1.5 shadow-2xl backdrop-blur-md text-[11px] pointer-events-auto">
+            <div className="flex items-center gap-1.5 font-medium text-slate-300">
+              <span className="h-2 w-2 rounded-full bg-red-500" />
+              <span>Actual Source</span>
+            </div>
+            <span className="text-slate-600">·</span>
+            <div className="flex items-center gap-1.5 font-medium text-cyan-300">
+              <span className="w-3 border-t-2 border-dashed border-cyan-400" />
+              <span>Estimated Movement ({movementPrediction.dominantMovementDirection} ~{movementPrediction.estimatedTotalDistanceKm}km)</span>
+            </div>
+            <span className="text-slate-600">·</span>
+            <div className="flex items-center gap-1.5 font-medium text-cyan-300">
+              <span className="h-2.5 w-2.5 rounded-full border border-dashed border-cyan-400 bg-cyan-400/20" />
+              <span>Estimated Future Area</span>
+            </div>
+          </div>
+        )}
 
         {/* View mode menu */}
         <div data-map-mode-selector className="absolute left-1/2 top-3.5 z-[400] -translate-x-1/2 pointer-events-auto">

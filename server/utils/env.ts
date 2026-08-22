@@ -106,4 +106,16 @@ export function validateEnv() {
       console.warn("ENABLE_SENTINEL_HUB_VERIFICATION is true but credentials are missing. Satellite verification will be disabled.");
     }
   }
+  if (!process.env.GOOGLE_WEATHER_API_KEY && process.env.DEMO_MODE !== "true") {
+    console.warn("GOOGLE_WEATHER_API_KEY is not set. Meteorology requests will fall back to safe error/demo states.");
+  }
+  if (!process.env.METEOROLOGY_MOVEMENT_HORIZON_HOURS) {
+    process.env.METEOROLOGY_MOVEMENT_HORIZON_HOURS = "6";
+  }
+  if (!process.env.METEOROLOGY_CACHE_TTL_CURRENT_MINUTES) {
+    process.env.METEOROLOGY_CACHE_TTL_CURRENT_MINUTES = "5";
+  }
+  if (!process.env.METEOROLOGY_CACHE_TTL_FORECAST_MINUTES) {
+    process.env.METEOROLOGY_CACHE_TTL_FORECAST_MINUTES = "15";
+  }
 }
