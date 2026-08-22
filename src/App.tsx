@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
-import { Camera, ClipboardList, MapPinned, ShieldCheck, HandHeart, Trophy } from "lucide-react";
+import { Camera, ClipboardList, MapPinned, ShieldCheck, HandHeart, Trophy, Globe } from "lucide-react";
 import { AppShell } from "./components/AppShell";
 import type { PollutionReport, PollutionSituation } from "./types";
 import { listReports } from "./services/reportService";
@@ -10,7 +10,7 @@ import { db as firebaseDb, storage as firebaseStorage, ensureAnonymousSession } 
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 
-export type Route = "map" | "capture" | "my-reports" | "leaderboard" | "ngo" | "result" | "admin";
+export type Route = "map" | "federation" | "capture" | "my-reports" | "leaderboard" | "ngo" | "result" | "admin";
 
 const NearbyPage = lazy(() => import("./pages/NearbyPage").then(({ NearbyPage }) => ({ default: NearbyPage })));
 const ReportPage = lazy(() => import("./pages/ReportPage").then(({ ReportPage }) => ({ default: ReportPage })));
@@ -19,6 +19,7 @@ const MyReportsPage = lazy(() => import("./pages/MyReportsPage").then(({ MyRepor
 const LeaderboardPage = lazy(() => import("./pages/LeaderboardPage").then(({ LeaderboardPage }) => ({ default: LeaderboardPage })));
 const NgoPage = lazy(() => import("./pages/NgoPage").then(({ NgoPage }) => ({ default: NgoPage })));
 const AdminPage = lazy(() => import("./pages/AdminPage").then(({ AdminPage }) => ({ default: AdminPage })));
+const BricsFederationPanel = lazy(() => import("./components/BricsFederationPanel").then(({ BricsFederationPanel }) => ({ default: BricsFederationPanel })));
 
 function RouteLoading() {
   return <div className="flex h-full min-h-[160px] items-center justify-center p-6" role="status" aria-live="polite"><span className="h-7 w-7 animate-spin rounded-full border-2 border-white/10 border-t-[var(--accent)]" /><span className="sr-only">Loading page</span></div>;
@@ -26,6 +27,7 @@ function RouteLoading() {
 
 const navItems = [
   { route: "map"        as const, label: "Situation Map",    icon: MapPinned,    i18nKey: "nav.map" },
+  { route: "federation" as const, label: "Federation",       icon: Globe },
   { route: "capture"    as const, label: "Report Pollution", icon: Camera,       i18nKey: "nav.capture" },
   { route: "my-reports" as const, label: "My Reports",       icon: ClipboardList,i18nKey: "nav.myReports" },
   { route: "leaderboard" as const, label: "Leaderboard",     icon: Trophy },
@@ -37,7 +39,7 @@ function routeFromLocation(): Route {
   const path = window.location.pathname;
   if (path.startsWith("/admin")) return "admin";
   const hash = window.location.hash.replace("#", "");
-  if (["map", "capture", "my-reports", "leaderboard", "ngo", "result", "admin"].includes(hash)) return hash as Route;
+  if (["map", "federation", "capture", "my-reports", "leaderboard", "ngo", "result", "admin"].includes(hash)) return hash as Route;
   return "map";
 }
 
@@ -116,6 +118,7 @@ export default function App() {
         {route === "map" && (
           <NearbyPage reports={reports} situations={situations} focusReport={activeReport} onNavigate={navigate} />
         )}
+        {route === "federation" && <BricsFederationPanel />}
         {route === "capture" && (
           <ReportPage
             onSubmitted={async (report) => {

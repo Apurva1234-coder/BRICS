@@ -5,7 +5,7 @@ import type { Route } from "../App";
 export function useRouteAccessibility(route: Route) {
   const { t } = useTranslation();
   useEffect(() => {
-    const names: Record<Route, string> = { map: t("nav.map"), capture: t("nav.capture"), "my-reports": t("nav.myReports"), leaderboard: "Leaderboard", ngo: t("nav.municipal"), result: t("report.ticket"), admin: t("nav.officer") };
+    const names: Record<Route, string> = { map: t("nav.map"), federation: "BRICS Federation", capture: t("nav.capture"), "my-reports": t("nav.myReports"), leaderboard: "Leaderboard", ngo: t("nav.municipal"), result: t("report.ticket"), admin: t("nav.officer") };
     const name = names[route];
     document.title = `${name} | ${t("common.appName")}`;
     const timer = window.setTimeout(() => {

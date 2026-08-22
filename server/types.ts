@@ -818,3 +818,97 @@ export interface PollutionReport {
   sensitiveLocations?: SensitiveLocationImpactContext;
   contextualPriority?: ContextualPriorityContext;
 }
+
+// ==========================================
+// BRICS Environmental Federation Layer Types
+// ==========================================
+
+export type BricsCountryCode = "IND" | "CHN" | "BRA" | "RUS" | "ZAF" | "EGY" | "ETH" | "IDN" | "IRN" | "ARE" | "SAU";
+
+export type BricsNodeStatus = "active" | "syncing" | "degraded" | "offline";
+
+export interface BricsCountryNode {
+  nodeId: string;
+  countryCode: BricsCountryCode;
+  countryName: string;
+  flag: string;
+  geographicRegion: string;
+  supportedDataSources: Array<"cpcb" | "openaq" | "sentinel5p" | "open_meteo" | "citizen_reports" | "sensor_mesh" | "simulated">;
+  nodeStatus: BricsNodeStatus;
+  endpointUrl?: string;
+  registeredAt: string;
+  lastHeartbeatAt: string;
+  sharedEventsCount: number;
+  receivedEventsCount: number;
+  contactEmail?: string;
+  capabilities: {
+    canPublish: boolean;
+    canSubscribe: boolean;
+    hasSatelliteFeed: boolean;
+    hasGroundMesh: boolean;
+  };
+}
+
+export type BricsPollutionType =
+  | "industrial_smoke"
+  | "crop_burning"
+  | "vehicular_exhaust"
+  | "dust_storm"
+  | "chemical_leak"
+  | "solid_waste_burning"
+  | "wildfire"
+  | "other";
+
+export type BricsFederationSeverity = "critical" | "high" | "moderate" | "low";
+
+export interface BricsPollutantMetrics {
+  pm2_5?: number;
+  pm10?: number;
+  no2?: number;
+  so2?: number;
+  co?: number;
+  o3?: number;
+  aqi?: number;
+  [key: string]: number | undefined;
+}
+
+export interface BricsFederationEvent {
+  eventId: string;
+  sourceNodeId: string;
+  sourceCountry: BricsCountryCode;
+  sourceCountryName: string;
+  sourceFlag: string;
+  latitude: number;
+  longitude: number;
+  locality: string;
+  timestamp: string;
+  pollutionType: BricsPollutionType;
+  pollutantValues: BricsPollutantMetrics;
+  severity: BricsFederationSeverity;
+  confidence: number;
+  sourceType: "ground_station" | "satellite_sentinel5p" | "citizen_report" | "atmospheric_model" | "sensor_mesh";
+  
+  // Extensible meteorological / propagation fields
+  windDirectionDeg?: number;
+  windSpeedKmh?: number;
+  predictedAffectedRegion?: string;
+  predictionConfidence?: number;
+  targetCountries?: Array<BricsCountryCode | "ALL">;
+
+  title?: string;
+  description?: string;
+  verificationStatus: "verified" | "indicative" | "unverified";
+  sharedAt: string;
+  metadata?: Record<string, any>;
+}
+
+export interface BricsFederationStatusResponse {
+  federationActive: boolean;
+  totalNodes: number;
+  activeNodes: number;
+  totalSharedEvents: number;
+  crossBorderEventsCount: number;
+  lastSyncAt: string;
+  supportedRegions: string[];
+}
+

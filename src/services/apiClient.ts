@@ -16,7 +16,14 @@ import type {
   SatelliteEvidence,
   RecurringHotspotContext,
   SensitiveLocationImpactContext,
-  ContextualPriorityContext
+  ContextualPriorityContext,
+  BricsCountryNode,
+  BricsFederationEvent,
+  BricsFederationStatusResponse,
+  BricsCountryCode,
+  BricsPollutionType,
+  BricsPollutantMetrics,
+  BricsFederationSeverity
 } from "../types";
 import { frontendEnv } from "./env";
 
@@ -291,5 +298,70 @@ export const apiClient = {
   verifyReportSatellite: (reportId: string) =>
     request<{ message: string; satelliteEvidence: SatelliteEvidence }>(`/api/satellite/verify-report/${reportId}`, { method: "POST" }),
   getReportSatelliteEvidence: (reportId: string) =>
-    request<{ satelliteEvidence: SatelliteEvidence }>(`/api/satellite/report/${reportId}`)
+    request<{ satelliteEvidence: SatelliteEvidence }>(`/api/satellite/report/${reportId}`),
+
+  // BRICS Environmental Federation Layer API
+  getBricsNodes: () =>
+    request<{ success: boolean; nodes: BricsCountryNode[]; count: number; timestamp: string }>("/api/brics/federation/nodes"),
+  getBricsNode: (nodeId: string) =>
+    request<{ success: boolean; node: BricsCountryNode }>(`/api/brics/federation/nodes/${encodeURIComponent(nodeId)}`),
+  registerBricsNode: (payload: {
+    countryCode: BricsCountryCode;
+    nodeId?: string;
+    countryName?: string;
+    endpointUrl?: string;
+    geographicRegion?: string;
+    supportedDataSources?: BricsCountryNode["supportedDataSources"];
+    contactEmail?: string;
+  }) =>
+    request<{ success: boolean; node: BricsCountryNode; message: string }>("/api/brics/federation/nodes/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    }),
+  publishBricsEvent: (event: Partial<BricsFederationEvent> & {
+    sourceCountry: BricsCountryCode;
+    latitude: number;
+    longitude: number;
+    pollutionType: BricsPollutionType;
+    pollutantValues: BricsPollutantMetrics;
+    severity: BricsFederationSeverity;
+  }) =>
+    request<{ success: boolean; event: BricsFederationEvent; message: string }>("/api/brics/federation/events", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(event)
+    }),
+  getBricsEvents: (params?: {
+    country?: string;
+    targetCountry?: string;
+    severity?: string;
+    pollutionType?: string;
+    limit?: number;
+    since?: string;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.country) q.set("country", params.country);
+    if (params?.targetCountry) q.set("targetCountry", params.targetCountry);
+    if (params?.severity) q.set("severity", params.severity);
+    if (params?.pollutionType) q.set("pollutionType", params.pollutionType);
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.since) q.set("since", params.since);
+    const qs = q.toString();
+    return request<{ success: boolean; events: BricsFederationEvent[]; count: number; timestamp: string }>(
+      `/api/brics/federation/events${qs ? `?${qs}` : ""}`
+    );
+  },
+  getBricsEventsRelevantToCountry: (countryCode: string) =>
+    request<{
+      success: boolean;
+      countryCode: string;
+      countryName: string;
+      flag: string;
+      relevantEvents: BricsFederationEvent[];
+      count: number;
+      timestamp: string;
+    }>(`/api/brics/federation/events/relevant/${encodeURIComponent(countryCode)}`),
+  getBricsFederationStatus: () =>
+    request<{ success: boolean; status: BricsFederationStatusResponse }>("/api/brics/federation/status")
 };

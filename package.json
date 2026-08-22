@@ -31,6 +31,7 @@
     "test:contextual-priority": "tsx scripts/test-contextual-priority.ts",
     "test:context-aware": "tsx scripts/test-recurring-hotspot.ts && tsx scripts/test-sensitive-locations.ts && tsx scripts/test-contextual-priority.ts",
     "test:brics-aqi": "tsx scripts/test-openaq-brics.ts",
+    "test:brics-federation": "tsx scripts/test-brics-federation.ts",
     "test:a11y": "playwright test tests/accessibility.spec.ts",
     "test:a11y:headed": "playwright test tests/accessibility.spec.ts --headed",
     "test:sentinel-auth": "tsx scripts/test-sentinel-auth.ts",
