@@ -739,7 +739,17 @@ reportsRouter.get("/air-quality/map", async (req, res) => {
   if ((lat !== undefined && (!Number.isFinite(lat) || lat < -90 || lat > 90)) || (lng !== undefined && (!Number.isFinite(lng) || lng < -180 || lng > 180))) {
     return res.status(400).json({ error: "lat and lng must be valid coordinates." });
   }
-  res.json(await getAirQualityMap(lat === undefined || lng === undefined ? undefined : { lat, lng }));
+  const country = typeof req.query.country === "string" ? req.query.country : undefined;
+  const iso = typeof req.query.iso === "string" ? req.query.iso : undefined;
+  const isGlobal = req.query.global === "true" || country?.toLowerCase() === "global";
+
+  res.json(await getAirQualityMap({
+    lat,
+    lng,
+    country,
+    iso,
+    global: isGlobal
+  }));
 });
 
 reportsRouter.get("/air-quality/national-status", async (req, res) => {

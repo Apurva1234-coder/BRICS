@@ -168,9 +168,21 @@ export const apiClient = {
     request<AirQualitySummary>(`/api/air-quality?lat=${lat}&lng=${lng}`),
   getAirQualitySources: (lat: number, lng: number) =>
     request<AirQualitySourcesResponse>(`/api/air-quality/sources?lat=${lat}&lng=${lng}`),
-  getAirQualityMap: (location?: { lat: number; lng: number }, options?: { signal?: AbortSignal }) => request<AirQualityMapResponse>(location
-    ? `/api/air-quality/map?lat=${location.lat}&lng=${location.lng}`
-    : "/api/air-quality/map", options),
+  getAirQualityMap: (
+    params?: { lat?: number; lng?: number; country?: string; iso?: string; global?: boolean } | { lat: number; lng: number },
+    options?: { signal?: AbortSignal }
+  ) => {
+    const q = new URLSearchParams();
+    if (params) {
+      if ("lat" in params && params.lat !== undefined) q.set("lat", String(params.lat));
+      if ("lng" in params && params.lng !== undefined) q.set("lng", String(params.lng));
+      if ("country" in params && params.country) q.set("country", params.country);
+      if ("iso" in params && params.iso) q.set("iso", params.iso);
+      if ("global" in params && params.global) q.set("global", "true");
+    }
+    const qs = q.toString();
+    return request<AirQualityMapResponse>(`/api/air-quality/map${qs ? `?${qs}` : ""}`, options);
+  },
   loadSatellitePollution: (payload: { country: string; pollutant: string; startDate: string; endDate: string }, options?: { signal?: AbortSignal }) => request<{ success: boolean; tileUrl: string; pollutant: string; country: string; source: string; dataset: string; band: string; legend: { label: string; unit: string; min: number; max: number }; metadata: { startDate: string; endDate: string } }>("/api/satellite", { method: "POST", body: JSON.stringify(payload), signal: options?.signal }),
   getLocalAirQualityMap: (region = "pune_pcmc") =>
     request<AirQualityMapResponse>(`/api/air-quality/local-map?region=${encodeURIComponent(region)}`),

@@ -889,6 +889,8 @@ export function LocalLeafletMap({
   const [forecastError, setForecastError] = useState<string | null>(null);
   const [localAqiLayer, setLocalAqiLayer] = useState<AirQualityMapResponse | null>(null);
   const [localAqiLoading, setLocalAqiLoading] = useState(false);
+  const [countryAqiLayer, setCountryAqiLayer] = useState<AirQualityMapResponse | null>(null);
+  const [globalAqiLayer, setGlobalAqiLayer] = useState<AirQualityMapResponse | null>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [mapFailed, setMapFailed] = useState(false);
   const [mapView, setMapView] = useState<MapView>({ lat: DEFAULT_CENTER.lat, lng: DEFAULT_CENTER.lng, zoom: 5 });
@@ -896,6 +898,39 @@ export function LocalLeafletMap({
   const [legendOpen, setLegendOpen] = useState(false);
   const legendRef = useRef<HTMLDivElement>(null);
   const mapOverlayRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!selectedCountry) {
+      setCountryAqiLayer(null);
+      return;
+    }
+    let cancelled = false;
+    apiClient
+      .getAirQualityMap({ country: selectedCountry.iso3 })
+      .then((res) => {
+        if (!cancelled) setCountryAqiLayer(res);
+      })
+      .catch(() => {
+        if (!cancelled) setCountryAqiLayer(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCountry]);
+
+  useEffect(() => {
+    if (mode !== "global") return;
+    let cancelled = false;
+    apiClient
+      .getAirQualityMap({ global: true })
+      .then((res) => {
+        if (!cancelled) setGlobalAqiLayer(res);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [mode]);
 
   const validReports = useMemo(
     () => reports.filter((report) => Number.isFinite(report.lat) && Number.isFinite(report.lng)),
@@ -917,25 +952,36 @@ export function LocalLeafletMap({
   const mapNearPunePcmc = isPunePcmcRegion(mapView) && mapView.zoom >= 10;
   const shouldLoadLocalAqi = userInPunePcmc || mapNearPunePcmc;
   const showDelhiForecast = isDelhiRegion(mapView);
+
+  const activeSourcePoints = useMemo(() => {
+    if (selectedCountry && countryAqiLayer?.points?.length) {
+      return countryAqiLayer.points;
+    }
+    if (mode === "global" && globalAqiLayer?.points?.length) {
+      return globalAqiLayer.points;
+    }
+    return layer?.points || [];
+  }, [selectedCountry, countryAqiLayer, mode, globalAqiLayer, layer]);
+
   const allStationPoints = useMemo(
-    () => dedupePhysicalStations((layer?.points || []).filter((point) => hasAnyMetric(point) && Number.isFinite(point.lat) && Number.isFinite(point.lng))),
-    [layer]
+    () => dedupePhysicalStations(activeSourcePoints.filter((point) => hasAnyMetric(point) && Number.isFinite(point.lat) && Number.isFinite(point.lng))),
+    [activeSourcePoints]
   );
   const visibleStationPoints = useMemo(
-    () => mode === "global" || mode === "air" ? allStationPoints.filter((point) => {
+    () => mode === "global" || mode === "air" || Boolean(selectedCountry) ? allStationPoints.filter((point) => {
       // The marker renderer already omits points without a real AQI value.
       // Keep stations with usable AQI data visible even when provider status
       // metadata is pending or absent.
       return hasMetric(point, "aqi");
     }) : [],
-    [allStationPoints, mode]
+    [allStationPoints, mode, selectedCountry]
   );
   const displayStationPoints = useMemo(
     () => clusteredPoints(visibleStationPoints, selectedCountry ? Math.max(mapView.zoom, 9) : mapView.zoom, selectedMetric),
     [selectedCountry, visibleStationPoints, mapView.zoom, selectedMetric]
   );
 
-  const aqiCoverage = layer?.aqiCoverage;
+  const aqiCoverage = (selectedCountry && countryAqiLayer?.aqiCoverage) || (mode === "global" && globalAqiLayer?.aqiCoverage) || layer?.aqiCoverage;
   const localAqiPoints = localAqiLayer?.points ?? [];
   const localPoints = useMemo(
     () =>
@@ -1313,7 +1359,7 @@ export function LocalLeafletMap({
             </>
           ) : null}
 
-          {visibleLayers.cpcbStations
+          {(visibleLayers.cpcbStations || Boolean(selectedCountry))
             ? displayStationPoints.map((cluster) => cluster.count > 1 ? (
                 <StationClusterMarker
                   key={`${cluster.point.id}:${cluster.count}`}

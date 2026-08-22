@@ -99,7 +99,7 @@ export function ReportPage({ onSubmitted }: { onSubmitted: (report: PollutionRep
     setMessageTone("info");
     try {
       const compressed = await compressImage(file);
-      if (compressed.size > MAX_DEMO_IMAGE_BYTES) throw new Error("The compressed photo is too large for this browser demo. Please capture a clearer, closer photo.");
+      if (compressed.size > MAX_DEMO_IMAGE_BYTES) throw new Error("The compressed photo is too large. Please capture a clearer, closer photo.");
       const thumbnail = await createAnalysisThumbnail(compressed);
       const bitmap = await createImageBitmap(compressed);
       clearPreview();

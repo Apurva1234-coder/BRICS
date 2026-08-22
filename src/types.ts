@@ -547,7 +547,7 @@ export interface AirQualityMapPoint {
 
 export interface AirQualityMapResponse {
   generatedAt: string;
-  country: "India";
+  country: string;
   cpcbUsable: boolean;
   cpcbReason: string;
   openAqUsable?: boolean;

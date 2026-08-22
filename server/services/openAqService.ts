@@ -268,6 +268,81 @@ export async function getOpenAqNearbyStations(lat: number, lng: number, options:
   return stations.sort((a, b) => (a.distanceMeters ?? Infinity) - (b.distanceMeters ?? Infinity));
 }
 
+export async function getOpenAqCountryStations(iso: string, limit = 20): Promise<OpenAqStationPoint[]> {
+  try {
+    const query = new URLSearchParams({
+      iso: iso.toUpperCase(),
+      mobile: "false",
+      limit: String(Math.min(limit, 50)),
+      page: "1",
+      order_by: "id",
+      sort_order: "asc"
+    });
+    const response = await fetchOpenAq(`locations?${query.toString()}`);
+    const json = (await response.json()) as { meta?: { found?: number }; results?: unknown[] };
+    const locations = Array.isArray(json.results)
+      ? json.results.flatMap((value) => {
+          const parsed = parseOpenAqLocation(value);
+          return parsed && parsed.isMobile !== true ? [parsed] : [];
+        })
+      : [];
+
+    const stations = (
+      await Promise.all(
+        locations.slice(0, limit).map(async (location) => {
+          try {
+            const detailed = await getOpenAqLatestDetailed(location);
+            const readings = detailed.readings;
+            const usable = Object.fromEntries(
+              readings
+                .filter(
+                  (reading) =>
+                    reading.value !== undefined &&
+                    reading.unitCompatible &&
+                    (reading.freshness === "fresh" || reading.freshness === "usable")
+                )
+                .map((reading) => [reading.pollutant, reading])
+            ) as Partial<Record<PollutantCode, OpenAqReading>>;
+            const updates = readings
+              .map((reading) => reading.measuredAt)
+              .filter((value): value is string => Boolean(value))
+              .sort()
+              .reverse();
+            const newestAge = readings
+              .map((reading) => reading.ageHours)
+              .filter((age): age is number => Number.isFinite(age))
+              .sort((a, b) => a - b)[0];
+            return {
+              id: `openaq:${location.id}`,
+              locationId: location.id,
+              name: location.name,
+              locality: location.locality,
+              lat: location.coordinates.latitude,
+              lng: location.coordinates.longitude,
+              provider: location.provider?.name,
+              owner: location.owner?.name,
+              isMonitor: location.isMonitor,
+              sensors: location.sensors,
+              readings: usable,
+              additionalReadings: detailed.additionalReadings,
+              lastUpdate: updates[0],
+              freshness: freshnessFromAge(newestAge),
+              attribution: location.licenses?.[0]?.attribution?.name,
+              license: location.licenses?.[0]?.name
+            } as OpenAqStationPoint;
+          } catch {
+            return undefined;
+          }
+        })
+      )
+    ).filter((station): station is OpenAqStationPoint => station !== undefined);
+
+    return stations;
+  } catch {
+    return [];
+  }
+}
+
 export async function getOpenAqHourlyHistory(sensorId: number, pollutant: PollutantCode, options: { days?: number; limit?: number } = {}): Promise<OpenAqHistoryPoint[]> {
   const days = Math.max(1, Math.min(14, Math.floor(options.days ?? 7)));
   // OpenAQ v3 rejects oversized page limits; 500 covers the configured 14-day cap.

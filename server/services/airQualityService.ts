@@ -2,13 +2,14 @@ import type { AirQualityAqiResult, AirQualityMapAqi, AirQualityMapPoint, AirQual
 import { calculateIndicativeCpcbAqi } from "../airQuality/aqi.js";
 import { POLLUTANT_ORDER, canonicalUnit, type PollutantCode } from "../airQuality/pollutants.js";
 import { getCpcbAirQualityWithDebug, getCpcbMapPoints, getNearbyCpcbStations } from "./cpcbService.js";
-import { getOpenAqNearbyStations, type OpenAqStationPoint } from "./openAqService.js";
+import { getOpenAqCountryStations, getOpenAqNearbyStations, type OpenAqStationPoint } from "./openAqService.js";
 import { getOpenAqNationalSnapshot } from "./openAqNationalSnapshotService.js";
 import { distanceMeters } from "../utils/geo.js";
 import { matchPhysicalStations } from "./stationMatchingService.js";
 import { getCurrentAqiSnapshot, type StationAqiResult, type StationAqiSnapshot } from "./currentAqiSnapshotService.js";
 import { loadAirQualityMapCache, saveAirQualityMapCache } from "./airQualityMapCache.js";
-import { getOpenMeteoAirQuality, getOpenMeteoNationalAirQuality } from "./openMeteoAirQualityService.js";
+import { getOpenMeteoAirQuality, getOpenMeteoCountryAirQuality, getOpenMeteoGlobalAirQuality, getOpenMeteoNationalAirQuality } from "./openMeteoAirQualityService.js";
+import { findBricsCountry } from "../data/bricsCountries.js";
 
 export interface AirQualityDebugResponse {
   cpcbConfigured: boolean;
@@ -260,7 +261,149 @@ function toMapPoint(station: AirQualityStation, current?: StationAqiSnapshot, sn
   return { id: station.id, physicalStationId: station.id, provider, sourceLabel: station.provider === "matched" ? "Matched CPCB + OpenAQ station" : station.provider === "cpcb_data_gov" ? "CPCB official monitoring station" : "OpenAQ supplementary monitoring station", label: station.name, name: station.name, city: station.city, state: station.state, lat: station.lat, lng: station.lng, metrics, units, aqi: selected?.value, aqiQuality: selected?.quality || "unavailable", aqiStatus, category: selected?.category, dominantPollutant: selected?.dominantPollutant, lastUpdate: station.lastUpdate, distanceMeters: station.distanceMeters, station, providers: station.providers, metricDetails, availability: { available, supported: POLLUTANT_ORDER.length, label: `${available} of ${POLLUTANT_ORDER.length} current eligible pollutants available` }, attribution: station.attribution, note: selected?.quality === "rolling_validated" ? "Estimated Indian AQI calculated from validated rolling station measurements; application-calculated and not official." : selected?.quality === "indicative" ? "Indicative AQI from fresh CPCB-reported averages; averaging period not verified." : "Station-derived context, not exact street-level sensor data." };
 }
 
-export async function getAirQualityMap(location?: { lat: number; lng: number }): Promise<AirQualityMapResponse> {
+export async function getAirQualityMap(options?: { lat?: number; lng?: number; country?: string; iso?: string; global?: boolean }): Promise<AirQualityMapResponse> {
+  const isGlobal = Boolean(options?.global || options?.country?.toLowerCase() === "global");
+  const requestedCountry = options?.country || options?.iso;
+  const bricsCountry = requestedCountry ? findBricsCountry(requestedCountry) : undefined;
+
+  // 1. Global BRICS Multi-Country Overview
+  if (isGlobal) {
+    const globalModel = await getOpenMeteoGlobalAirQuality().catch(() => []);
+    const points = globalModel.map((point) =>
+      toOpenMeteoMapPoint(point.summary, point.lat, point.lng, point.city, point.country || point.state)
+    );
+    const totalPhysicalStations = points.length;
+    const metricCoverage = Object.fromEntries(
+      ["aqi", ...POLLUTANT_ORDER].map((metric) => [
+        metric,
+        {
+          eligibleStations:
+            metric === "aqi"
+              ? points.filter((point) => point.aqi !== undefined).length
+              : points.filter((point) => point.metrics[metric as keyof typeof point.metrics] !== undefined).length,
+          totalPhysicalStations
+        }
+      ])
+    ) as AirQualityMapResponse["metricCoverage"];
+
+    return {
+      generatedAt: new Date().toISOString(),
+      country: "Global (BRICS)",
+      cpcbUsable: false,
+      cpcbReason: "Global view displays standardized multi-country monitoring points across all 11 BRICS member states.",
+      openAqUsable: true,
+      openAqReason: "Global monitoring coverage powered by OpenAQ and Open-Meteo atmospheric models.",
+      points,
+      providerCounts: {
+        cpcb_data_gov: 0,
+        openaq: 0,
+        open_meteo: points.length,
+        fused_measured: 0
+      },
+      completeness: {
+        cpcbComplete: true,
+        openAqMetadataComplete: true,
+        openAqLatestComplete: true,
+        nationalMapComplete: true
+      },
+      metricCoverage,
+      aqiCoverage: {
+        validatedEligibleStations: 0,
+        indicativeEligibleStations: points.length,
+        providerReportedEligibleStations: 0,
+        selectedDisplayStations: points.length,
+        pendingStations: 0,
+        insufficientHistoryStations: 0,
+        insufficientPollutantStations: 0,
+        unavailableStations: 0,
+        totalPhysicalStations,
+        processedStations: points.length,
+        queuedStations: 0,
+        successfulValidatedStations: 0,
+        failedStations: 0,
+        snapshotRefreshing: false,
+        nationalSnapshotRefreshing: false,
+        snapshotComplete: true
+      },
+      warnings: []
+    };
+  }
+
+  // 2. Specific Non-India BRICS Country (Brazil, Russia, China, South Africa, Egypt, Ethiopia, Indonesia, Iran, UAE, Saudi Arabia)
+  if (bricsCountry && bricsCountry.iso3 !== "IND") {
+    const countryModel = await getOpenMeteoCountryAirQuality(bricsCountry.name).catch(() => []);
+    const points: AirQualityMapPoint[] = countryModel.map((point) =>
+      toOpenMeteoMapPoint(point.summary, point.lat, point.lng, point.city, point.state)
+    );
+
+    // Try fetching OpenAQ stations for this country
+    const openAqStations = await getOpenAqCountryStations(bricsCountry.iso2, 20).catch(() => []);
+    if (openAqStations.length > 0) {
+      const openAqPoints = openAqStations.map(openAqStationToStation).map((station) => toMapPoint(station, undefined, true));
+      points.unshift(...openAqPoints);
+    }
+
+    const totalPhysicalStations = points.length;
+    const metricCoverage = Object.fromEntries(
+      ["aqi", ...POLLUTANT_ORDER].map((metric) => [
+        metric,
+        {
+          eligibleStations:
+            metric === "aqi"
+              ? points.filter((point) => point.aqi !== undefined).length
+              : points.filter((point) => point.metrics[metric as keyof typeof point.metrics] !== undefined).length,
+          totalPhysicalStations
+        }
+      ])
+    ) as AirQualityMapResponse["metricCoverage"];
+
+    return {
+      generatedAt: new Date().toISOString(),
+      country: bricsCountry.name,
+      cpcbUsable: false,
+      cpcbReason: `CPCB is specific to India; ${bricsCountry.name} air quality is sourced from OpenAQ & international atmospheric stations.`,
+      openAqUsable: openAqStations.length > 0,
+      openAqReason: openAqStations.length
+        ? `Loaded ${openAqStations.length} OpenAQ monitoring stations for ${bricsCountry.name}.`
+        : `Monitoring coverage active for ${bricsCountry.name}.`,
+      points,
+      providerCounts: {
+        cpcb_data_gov: 0,
+        openaq: openAqStations.length,
+        open_meteo: countryModel.length,
+        fused_measured: 0
+      },
+      completeness: {
+        cpcbComplete: true,
+        openAqMetadataComplete: true,
+        openAqLatestComplete: true,
+        nationalMapComplete: true
+      },
+      metricCoverage,
+      aqiCoverage: {
+        validatedEligibleStations: 0,
+        indicativeEligibleStations: points.length,
+        providerReportedEligibleStations: 0,
+        selectedDisplayStations: points.length,
+        pendingStations: 0,
+        insufficientHistoryStations: 0,
+        insufficientPollutantStations: 0,
+        unavailableStations: 0,
+        totalPhysicalStations,
+        processedStations: points.length,
+        queuedStations: 0,
+        successfulValidatedStations: 0,
+        failedStations: 0,
+        snapshotRefreshing: false,
+        nationalSnapshotRefreshing: false,
+        snapshotComplete: true
+      },
+      warnings: []
+    };
+  }
+
+  // 3. India / Default National Map
+  const location = options?.lat !== undefined && options?.lng !== undefined ? { lat: options.lat, lng: options.lng } : undefined;
   const cpcb = await timed(getCpcbMapPoints().catch((error) => ({ points: [], reason: error instanceof Error ? error.message : "CPCB unavailable.", complete: false })), 2_500, { points: [], reason: "CPCB map refresh is taking too long; showing available live sources.", complete: false });
   let nearbyFallback: OpenAqStationPoint[] = [];
   if (location && Number.isFinite(location.lat) && Number.isFinite(location.lng)) {

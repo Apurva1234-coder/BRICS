@@ -1,5 +1,6 @@
 import type { AirQualityAqiResult, AirQualitySummary, AirQualityStation, CpcbPollutantCode, NormalizedPollutantReading } from "../types.js";
 import { calculateIndianAqi } from "../airQuality/aqi.js";
+import { BRICS_COUNTRIES_CONFIG, findBricsCountry, type BricsCountryInfo } from "../data/bricsCountries.js";
 
 type OpenMeteoResponse = {
   latitude?: number;
@@ -18,28 +19,7 @@ type OpenMeteoResponse = {
 const ENDPOINT = "https://air-quality-api.open-meteo.com/v1/air-quality";
 const CACHE_MS = 10 * 60_000;
 const cache = new Map<string, { expires: number; value: AirQualitySummary }>();
-const INDIA_LOCATIONS = [
-  { city: "Srinagar", state: "Jammu and Kashmir", lat: 34.0837, lng: 74.7973 },
-  { city: "Chandigarh", state: "Chandigarh", lat: 30.7333, lng: 76.7794 },
-  { city: "Delhi", state: "Delhi", lat: 28.6139, lng: 77.2090 },
-  { city: "Jaipur", state: "Rajasthan", lat: 26.9124, lng: 75.7873 },
-  { city: "Lucknow", state: "Uttar Pradesh", lat: 26.8467, lng: 80.9462 },
-  { city: "Ahmedabad", state: "Gujarat", lat: 23.0225, lng: 72.5714 },
-  { city: "Bhopal", state: "Madhya Pradesh", lat: 23.2599, lng: 77.4126 },
-  { city: "Patna", state: "Bihar", lat: 25.5941, lng: 85.1376 },
-  { city: "Kolkata", state: "West Bengal", lat: 22.5726, lng: 88.3639 },
-  { city: "Guwahati", state: "Assam", lat: 26.1445, lng: 91.7362 },
-  { city: "Mumbai", state: "Maharashtra", lat: 19.0760, lng: 72.8777 },
-  { city: "Pune", state: "Maharashtra", lat: 18.5204, lng: 73.8567 },
-  { city: "Nagpur", state: "Maharashtra", lat: 21.1458, lng: 79.0882 },
-  { city: "Hyderabad", state: "Telangana", lat: 17.3850, lng: 78.4867 },
-  { city: "Visakhapatnam", state: "Andhra Pradesh", lat: 17.6868, lng: 83.2185 },
-  { city: "Bengaluru", state: "Karnataka", lat: 12.9716, lng: 77.5946 },
-  { city: "Chennai", state: "Tamil Nadu", lat: 13.0827, lng: 80.2707 },
-  { city: "Kochi", state: "Kerala", lat: 9.9312, lng: 76.2673 },
-  { city: "Bhubaneswar", state: "Odisha", lat: 20.2961, lng: 85.8245 }
-] as const;
-let nationalCache: { expires: number; value: OpenMeteoNationalPoint[] } | undefined;
+const countryCaches = new Map<string, { expires: number; value: OpenMeteoNationalPoint[] }>();
 
 function coordinateKey(lat: number, lng: number) {
   return `${lat.toFixed(2)}:${lng.toFixed(2)}`;
@@ -75,7 +55,7 @@ function summaryFromPayload(lat: number, lng: number, payload: OpenMeteoResponse
     const readings = Object.fromEntries([
       ["PM2.5", reading("PM2.5", current.pm2_5, "µg/m³", measuredAt)],
       ["PM10", reading("PM10", current.pm10, "µg/m³", measuredAt)],
-      // Open-Meteo supplies CO in µg/m³; the Indian AQI breakpoint uses mg/m³.
+      // Open-Meteo supplies CO in µg/m³; the AQI breakpoint uses mg/m³.
       ["CO", reading("CO", current.carbon_monoxide === undefined ? undefined : current.carbon_monoxide / 1_000, "mg/m³", measuredAt)],
       ["NO2", reading("NO2", current.nitrogen_dioxide, "µg/m³", measuredAt)],
       ["SO2", reading("SO2", current.sulphur_dioxide, "µg/m³", measuredAt)],
@@ -137,7 +117,7 @@ async function requestOpenMeteo(latitudes: string, longitudes: string): Promise<
   url.searchParams.set("current", "pm2_5,pm10,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone");
   url.searchParams.set("timezone", "auto");
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 4_000);
+  const timeout = setTimeout(() => controller.abort(), 6_000);
   try {
     const response = await fetch(url, { signal: controller.signal, headers: { Accept: "application/json" } });
     if (!response.ok) throw new Error(`Open-Meteo returned ${response.status}.`);
@@ -159,21 +139,74 @@ export async function getOpenMeteoAirQuality(lat: number, lng: number): Promise<
 
 export interface OpenMeteoNationalPoint {
   city: string;
-  state: string;
+  state?: string;
+  country?: string;
   lat: number;
   lng: number;
   summary: AirQualitySummary;
 }
 
-export async function getOpenMeteoNationalAirQuality(): Promise<OpenMeteoNationalPoint[]> {
-  if (nationalCache && nationalCache.expires > Date.now()) return nationalCache.value;
-  const payload = await requestOpenMeteo(INDIA_LOCATIONS.map((location) => location.lat).join(","), INDIA_LOCATIONS.map((location) => location.lng).join(","));
+export async function getOpenMeteoCountryAirQuality(countryQuery = "India"): Promise<OpenMeteoNationalPoint[]> {
+  const country = findBricsCountry(countryQuery) || BRICS_COUNTRIES_CONFIG.find((c) => c.name === "India")!;
+  const cacheKey = country.iso3;
+  const cached = countryCaches.get(cacheKey);
+  if (cached && cached.expires > Date.now()) return cached.value;
+
+  const locations = country.majorCities;
+  const payload = await requestOpenMeteo(
+    locations.map((loc) => loc.lat).join(","),
+    locations.map((loc) => loc.lng).join(",")
+  );
   const values = Array.isArray(payload) ? payload : [payload];
-  const result = INDIA_LOCATIONS.flatMap((location, index) => {
+  const result: OpenMeteoNationalPoint[] = locations.flatMap((location, index) => {
     const value = values[index];
     if (!value?.current) return [];
-    return [{ ...location, summary: summaryFromPayload(location.lat, location.lng, value, `Open-Meteo area model — ${location.city}`) }];
+    return [{
+      city: location.city,
+      state: location.state,
+      country: country.name,
+      lat: location.lat,
+      lng: location.lng,
+      summary: summaryFromPayload(location.lat, location.lng, value, `${location.city} Monitoring Point (${country.name})`)
+    }];
   });
-  nationalCache = { expires: Date.now() + CACHE_MS, value: result };
+
+  countryCaches.set(cacheKey, { expires: Date.now() + CACHE_MS, value: result });
+  return result;
+}
+
+export async function getOpenMeteoNationalAirQuality(): Promise<OpenMeteoNationalPoint[]> {
+  return getOpenMeteoCountryAirQuality("India");
+}
+
+export async function getOpenMeteoGlobalAirQuality(): Promise<OpenMeteoNationalPoint[]> {
+  const globalCacheKey = "GLOBAL_BRICS";
+  const cached = countryCaches.get(globalCacheKey);
+  if (cached && cached.expires > Date.now()) return cached.value;
+
+  // Fetch top 3 cities for each BRICS country for global overview
+  const globalCities = BRICS_COUNTRIES_CONFIG.flatMap((c) =>
+    c.majorCities.slice(0, 3).map((city) => ({ ...city, country: c.name }))
+  );
+
+  const payload = await requestOpenMeteo(
+    globalCities.map((loc) => loc.lat).join(","),
+    globalCities.map((loc) => loc.lng).join(",")
+  );
+  const values = Array.isArray(payload) ? payload : [payload];
+  const result: OpenMeteoNationalPoint[] = globalCities.flatMap((location, index) => {
+    const value = values[index];
+    if (!value?.current) return [];
+    return [{
+      city: location.city,
+      state: location.state,
+      country: location.country,
+      lat: location.lat,
+      lng: location.lng,
+      summary: summaryFromPayload(location.lat, location.lng, value, `${location.city} (${location.country})`)
+    }];
+  });
+
+  countryCaches.set(globalCacheKey, { expires: Date.now() + CACHE_MS, value: result });
   return result;
 }
