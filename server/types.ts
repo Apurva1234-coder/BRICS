@@ -1256,3 +1256,153 @@ export interface CorridorImpactInput {
   eventId?: string;
 }
 
+// ==========================================
+// Stage 5: Automated Regulatory Coordination Types
+// ==========================================
+
+export type AuthorityType =
+  | "NATIONAL_MINISTRY"
+  | "PROVINCIAL_EPB"
+  | "STATE_POLLUTION_CONTROL"
+  | "MUNICIPAL_ENVIRONMENTAL"
+  | "TRANSBOUNDARY_COMMISSION";
+
+export interface RegulatoryAuthority {
+  id: string;
+  name: string;
+  countryCode: string;
+  countryFlag: string;
+  region: string;
+  jurisdiction: string;
+  authorityType: AuthorityType;
+  responsiblePollutionTypes: string[];
+  contactEndpoint: {
+    channel: "internal_dashboard" | "webhook" | "mock_email";
+    target: string;
+  };
+  activeStatus: boolean;
+}
+
+export type RegulatoryResourceType =
+  | "INSPECTION_TEAM"
+  | "MOBILE_MONITORING_UNIT"
+  | "RAPID_RESPONSE_CREW"
+  | "FIELD_OFFICER"
+  | "EMISSION_ENFORCEMENT_UNIT";
+
+export interface RegulatoryResource {
+  id: string;
+  name: string;
+  authorityId: string;
+  countryCode: string;
+  countryFlag: string;
+  resourceType: RegulatoryResourceType;
+  status: "AVAILABLE" | "DISPATCHED" | "STANDBY" | "MAINTENANCE";
+  currentAssignmentAlertId?: string;
+  stationLocation: {
+    latitude: number;
+    longitude: number;
+    name: string;
+  };
+  contactCallsign: string;
+}
+
+export type AlertResponseStatus =
+  | "CREATED"
+  | "ACKNOWLEDGED"
+  | "ASSIGNED"
+  | "ACTION_IN_PROGRESS"
+  | "RESOLVED"
+  | "DISMISSED";
+
+export interface RegulatoryAuditEntry {
+  timestamp: string;
+  action: string;
+  actor: string;
+  notes?: string;
+  previousStatus?: AlertResponseStatus;
+  newStatus?: AlertResponseStatus;
+}
+
+export interface RegulatoryAlert {
+  alertId: string;
+  eventId?: string;
+  predictionId?: string;
+  corridorId?: string;
+  title: string;
+  sourceCountry: string;
+  sourceCountryName: string;
+  sourceFlag: string;
+  affectedCountry: string;
+  affectedCountryName: string;
+  affectedFlag: string;
+  affectedRegion: string;
+  pollutionType: string;
+  sourcePollutionLevel: {
+    pm2_5: number;
+    aqi?: number;
+    severity: string;
+  };
+  predictedPollutionLevel?: {
+    pm2_5: number;
+    aqi?: number;
+    remainingRatio?: number;
+  };
+  estimatedArrivalHours?: number;
+  estimatedArrivalTime?: string;
+  riskLevel: PropagationImpactLevel;
+  riskScore: number;
+  confidence: number;
+  confidenceLevel: "HIGH" | "MEDIUM" | "LOW";
+  targetAuthority: {
+    authorityId: string;
+    authorityName: string;
+    jurisdiction: string;
+  };
+  assignedResource?: {
+    resourceId: string;
+    resourceName: string;
+    resourceType: string;
+    dispatchedAt: string;
+  };
+  status: AlertResponseStatus;
+  recommendedActions: string[];
+  auditTrail: RegulatoryAuditEntry[];
+  resolutionNotes?: string;
+  resolvedAt?: string;
+  disclaimer: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateRegulatoryAlertInput {
+  eventId?: string;
+  predictionId?: string;
+  corridorId?: string;
+  sourceCountry: string;
+  sourceCountryName?: string;
+  sourceFlag?: string;
+  affectedCountry: string;
+  affectedCountryName?: string;
+  affectedFlag?: string;
+  affectedRegion: string;
+  pollutionType: string;
+  sourcePollutionLevel: {
+    pm2_5: number;
+    aqi?: number;
+    severity: string;
+  };
+  predictedPollutionLevel?: {
+    pm2_5: number;
+    aqi?: number;
+    remainingRatio?: number;
+  };
+  estimatedArrivalHours?: number;
+  estimatedArrivalTime?: string;
+  riskLevel: PropagationImpactLevel;
+  riskScore: number;
+  confidence?: number;
+  recommendedActions?: string[];
+  targetAuthorityId?: string;
+}
+

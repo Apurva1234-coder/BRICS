@@ -35,7 +35,12 @@ import type {
   EconomicCorridor,
   CorridorImpactPrediction,
   CorridorImpactInput,
-  CorridorCityImpact
+  CorridorCityImpact,
+  RegulatoryAuthority,
+  RegulatoryResource,
+  RegulatoryAlert,
+  CreateRegulatoryAlertInput,
+  AlertResponseStatus
 } from "../types";
 import { frontendEnv } from "./env";
 
@@ -487,5 +492,99 @@ export const apiClient = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
-    })
+    }),
+
+  // Stage 5: Automated Regulatory Coordination API
+  getRegulatoryAuthorities: (country?: string) =>
+    request<{
+      success: boolean;
+      count: number;
+      authorities: RegulatoryAuthority[];
+      timestamp: string;
+    }>(`/api/authorities${country ? `?country=${encodeURIComponent(country)}` : ""}`),
+  getRegulatoryAlerts: (filters?: {
+    status?: AlertResponseStatus;
+    country?: string;
+    risk?: string;
+  }) => {
+    const params = new URLSearchParams();
+    if (filters?.status) params.set("status", filters.status);
+    if (filters?.country) params.set("country", filters.country);
+    if (filters?.risk) params.set("risk", filters.risk);
+    const qs = params.toString();
+    return request<{
+      success: boolean;
+      count: number;
+      alerts: RegulatoryAlert[];
+      timestamp: string;
+    }>(`/api/alerts${qs ? `?${qs}` : ""}`);
+  },
+  getRegulatoryAlertById: (alertId: string) =>
+    request<{
+      success: boolean;
+      alert: RegulatoryAlert;
+      timestamp: string;
+    }>(`/api/alerts/${encodeURIComponent(alertId)}`),
+  createRegulatoryAlert: (payload: CreateRegulatoryAlertInput) =>
+    request<{
+      success: boolean;
+      alert: RegulatoryAlert;
+      timestamp: string;
+    }>("/api/alerts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    }),
+  acknowledgeRegulatoryAlert: (alertId: string, payload?: { actor?: string; notes?: string }) =>
+    request<{
+      success: boolean;
+      alert: RegulatoryAlert;
+      timestamp: string;
+    }>(`/api/alerts/${encodeURIComponent(alertId)}/acknowledge`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload || {})
+    }),
+  assignRegulatoryAlert: (alertId: string, payload: { resourceId: string; actor?: string; notes?: string }) =>
+    request<{
+      success: boolean;
+      alert: RegulatoryAlert;
+      timestamp: string;
+    }>(`/api/alerts/${encodeURIComponent(alertId)}/assign`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    }),
+  updateRegulatoryAlertStatus: (alertId: string, payload: { status: AlertResponseStatus; actor?: string; notes?: string }) =>
+    request<{
+      success: boolean;
+      alert: RegulatoryAlert;
+      timestamp: string;
+    }>(`/api/alerts/${encodeURIComponent(alertId)}/status`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    }),
+  resolveRegulatoryAlert: (alertId: string, payload: { resolutionNotes: string; actor?: string }) =>
+    request<{
+      success: boolean;
+      alert: RegulatoryAlert;
+      timestamp: string;
+    }>(`/api/alerts/${encodeURIComponent(alertId)}/resolve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    }),
+  getRegulatoryResources: (authorityId?: string, country?: string) => {
+    const params = new URLSearchParams();
+    if (authorityId) params.set("authorityId", authorityId);
+    if (country) params.set("country", country);
+    const qs = params.toString();
+    return request<{
+      success: boolean;
+      count: number;
+      resources: RegulatoryResource[];
+      timestamp: string;
+    }>(`/api/resources${qs ? `?${qs}` : ""}`);
+  }
 };

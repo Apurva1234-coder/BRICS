@@ -19,10 +19,12 @@ import {
   Send,
   SlidersHorizontal,
   Compass,
-  TrendingUp
+  TrendingUp,
+  ShieldAlert
 } from "lucide-react";
 import { CrossBorderPropagationPanel } from "./CrossBorderPropagationPanel";
 import { EconomicCorridorPanel } from "./EconomicCorridorPanel";
+import { RegulatoryCoordinationPanel } from "./RegulatoryCoordinationPanel";
 
 export function BricsFederationPanel() {
   const [nodes, setNodes] = useState<BricsCountryNode[]>([]);
@@ -35,7 +37,7 @@ export function BricsFederationPanel() {
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulatedEvent, setSimulatedEvent] = useState<BricsFederationEvent | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"protocol" | "propagation" | "corridors">("protocol");
+  const [activeTab, setActiveTab] = useState<"protocol" | "propagation" | "corridors" | "regulatory">("protocol");
 
   const loadFederationData = async () => {
     setLoading(true);
@@ -196,9 +198,24 @@ export function BricsFederationPanel() {
           <TrendingUp size={14} />
           <span>Economic Corridors (Stage 4)</span>
         </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("regulatory")}
+          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition ${
+            activeTab === "regulatory"
+              ? "bg-purple-400/20 text-purple-300 ring-1 ring-purple-400/40 shadow-sm"
+              : "text-slate-400 hover:text-white hover:bg-white/5"
+          }`}
+        >
+          <ShieldAlert size={14} />
+          <span>Regulatory Coordination (Stage 5)</span>
+        </button>
       </div>
 
-      {activeTab === "corridors" ? (
+      {activeTab === "regulatory" ? (
+        <RegulatoryCoordinationPanel />
+      ) : activeTab === "corridors" ? (
         <EconomicCorridorPanel />
       ) : activeTab === "propagation" ? (
         <CrossBorderPropagationPanel />
