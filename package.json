@@ -34,6 +34,7 @@
     "test:brics-federation": "tsx scripts/test-brics-federation.ts",
     "test:meteorology": "tsx scripts/test-meteorology.ts",
     "test:propagation": "tsx scripts/test-propagation.ts",
+    "test:corridors": "tsx scripts/test-corridors.ts",
     "test:a11y": "playwright test tests/accessibility.spec.ts",
     "test:a11y:headed": "playwright test tests/accessibility.spec.ts --headed",
     "test:sentinel-auth": "tsx scripts/test-sentinel-auth.ts",

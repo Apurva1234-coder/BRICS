@@ -18,7 +18,8 @@ import type {
   PollutionSituation,
   SensitiveLocation,
   PollutionMovementEstimate,
-  CrossBorderImpactPrediction
+  CrossBorderImpactPrediction,
+  EconomicCorridor
 } from "../types";
 import { ForecastPanel } from "./ForecastPanel";
 import { CpcbLayerPanel } from "./CpcbLayerPanel";
@@ -903,6 +904,7 @@ export function LocalLeafletMap({
   const mapOverlayRef = useRef<HTMLDivElement>(null);
   const [movementPrediction, setMovementPrediction] = useState<PollutionMovementEstimate | null>(null);
   const [crossBorderPlumes, setCrossBorderPlumes] = useState<CrossBorderImpactPrediction[]>([]);
+  const [economicCorridors, setEconomicCorridors] = useState<EconomicCorridor[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -916,6 +918,18 @@ export function LocalLeafletMap({
       .catch(() => {
         if (!cancelled) setCrossBorderPlumes([]);
       });
+
+    apiClient
+      .getCorridors()
+      .then((res) => {
+        if (!cancelled && res.corridors) {
+          setEconomicCorridors(res.corridors);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setEconomicCorridors([]);
+      });
+
     return () => {
       cancelled = true;
     };
@@ -1714,6 +1728,51 @@ export function LocalLeafletMap({
                   </div>
                 </Tooltip>
               </Marker>
+            </Fragment>
+          ))}
+
+          {/* Stage 4: BRICS Economic Trade Corridors */}
+          {economicCorridors.map((corridor) => (
+            <Fragment key={corridor.id}>
+              {/* Corridor Path Polyline */}
+              <Polyline
+                positions={corridor.waypoints.map((w) => [w.latitude, w.longitude] as [number, number])}
+                pathOptions={{
+                  color: "#f59e0b",
+                  weight: 3,
+                  opacity: 0.65,
+                  dashArray: "6,6"
+                }}
+              >
+                <Tooltip direction="top" opacity={0.95}>
+                  <div className="text-[11px] font-sans font-bold">
+                    <span className="text-amber-400 font-black">Trade Corridor:</span> {corridor.name}
+                    <span className="block text-[10px] text-slate-300 font-normal">{corridor.totalLengthKm} km · {corridor.primaryIndustries.slice(0, 2).join(", ")}</span>
+                  </div>
+                </Tooltip>
+              </Polyline>
+
+              {/* City Hub Markers */}
+              {corridor.cities.map((city) => (
+                <CircleMarker
+                  key={city.id}
+                  center={[city.latitude, city.longitude]}
+                  radius={4.5}
+                  pathOptions={{
+                    color: "#f59e0b",
+                    fillColor: "#fbbf24",
+                    fillOpacity: 0.9,
+                    weight: 1.5
+                  }}
+                >
+                  <Tooltip direction="bottom" offset={[0, 6]} opacity={0.95}>
+                    <div className="text-[10px] font-sans font-bold">
+                      <span>{city.countryFlag} {city.name}</span>
+                      <span className="block text-slate-300 font-normal">Output: {city.economicWeight}/10 · {city.industrialFocus.split(",")[0]}</span>
+                    </div>
+                  </Tooltip>
+                </CircleMarker>
+              ))}
             </Fragment>
           ))}
         </MapContainer>

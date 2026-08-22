@@ -31,7 +31,11 @@ import type {
   PropagationInput,
   PropagationResult,
   CrossBorderImpactPrediction,
-  PropagationStep
+  PropagationStep,
+  EconomicCorridor,
+  CorridorImpactPrediction,
+  CorridorImpactInput,
+  CorridorCityImpact
 } from "../types";
 import { frontendEnv } from "./env";
 
@@ -442,5 +446,46 @@ export const apiClient = {
       success: boolean;
       event: BricsFederationEvent;
       propagation: PropagationResult;
-    }>(`/api/propagation/event/${encodeURIComponent(eventId)}${horizonHours ? `?horizonHours=${horizonHours}` : ""}`)
+    }>(`/api/propagation/event/${encodeURIComponent(eventId)}${horizonHours ? `?horizonHours=${horizonHours}` : ""}`),
+
+  // Stage 4: Economic Corridor Intelligence API
+  getCorridors: (country?: string) =>
+    request<{
+      success: boolean;
+      count: number;
+      corridors: EconomicCorridor[];
+      timestamp: string;
+    }>(`/api/corridors${country ? `?country=${encodeURIComponent(country)}` : ""}`),
+  getCorridorById: (corridorId: string) =>
+    request<{
+      success: boolean;
+      corridor: EconomicCorridor;
+      activePrediction: CorridorImpactPrediction | null;
+      timestamp: string;
+    }>(`/api/corridors/${encodeURIComponent(corridorId)}`),
+  getAffectedCorridors: () =>
+    request<{
+      success: boolean;
+      count: number;
+      affectedCorridors: CorridorImpactPrediction[];
+      timestamp: string;
+    }>("/api/corridors/affected"),
+  getActiveCorridorPredictions: () =>
+    request<{
+      success: boolean;
+      count: number;
+      predictions: CorridorImpactPrediction[];
+      timestamp: string;
+    }>("/api/corridors/active-predictions"),
+  predictCorridorImpact: (payload: CorridorImpactInput) =>
+    request<{
+      success: boolean;
+      count: number;
+      predictions: CorridorImpactPrediction[];
+      timestamp: string;
+    }>("/api/corridors/predict-impact", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    })
 };

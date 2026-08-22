@@ -1111,3 +1111,107 @@ export interface PropagationResult {
   generatedAt: string;
 }
 
+// ==========================================
+// Stage 4: Economic Corridor Intelligence Types
+// ==========================================
+
+export type CorridorImportance = "CRITICAL" | "HIGH" | "MEDIUM";
+
+export interface CorridorCityNode {
+  id: string;
+  name: string;
+  countryCode: string;
+  countryFlag: string;
+  latitude: number;
+  longitude: number;
+  populationEstimate: number;
+  economicWeight: number; // 1 to 10 scale of economic trade output
+  industrialFocus: string;
+  corridorKmMarker: number;
+}
+
+export interface EconomicCorridor {
+  id: string;
+  name: string;
+  countries: string[];
+  description: string;
+  importance: CorridorImportance;
+  primaryIndustries: string[];
+  totalLengthKm: number;
+  waypoints: Array<{ latitude: number; longitude: number }>;
+  cities: CorridorCityNode[];
+}
+
+export interface CorridorCityImpact {
+  cityId: string;
+  cityName: string;
+  countryCode: string;
+  countryFlag: string;
+  latitude: number;
+  longitude: number;
+  estimatedArrivalHours: number;
+  estimatedArrivalTime: string;
+  closestDistanceKm: number;
+  predictedPm2_5: number;
+  predictedAqi: number;
+  impactLevel: PropagationImpactLevel;
+  economicDisruptionRisk: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
+}
+
+export interface CorridorTimelineMilestone {
+  stepHours: number;
+  label: string;
+  description: string;
+  pm2_5: number;
+  type: "source" | "city" | "border" | "plume_terminus";
+}
+
+export interface CorridorImpactPrediction {
+  predictionId: string;
+  corridorId: string;
+  corridorName: string;
+  countries: string[];
+  sourceLocation: {
+    latitude: number;
+    longitude: number;
+    locality?: string;
+  };
+  sourcePollutant: string;
+  sourcePollutionLevel: {
+    pm2_5: number;
+    severity: string;
+  };
+  affectedCities: CorridorCityImpact[];
+  earliestArrivalHours: number;
+  earliestArrivalTime: string;
+  maxPredictedPm2_5: number;
+  borderCrossingForecast?: {
+    arrivalHours: number;
+    timestamp: string;
+    fromCountry: string;
+    toCountry: string;
+  };
+  corridorRiskScore: number;
+  corridorRiskCategory: PropagationImpactLevel;
+  confidence: number;
+  confidenceLevel: "HIGH" | "MEDIUM" | "LOW";
+  timelineSummary: CorridorTimelineMilestone[];
+  explanation: string;
+  disclaimer: string;
+  generatedAt: string;
+}
+
+export interface CorridorImpactInput {
+  corridorId?: string;
+  sourceLatitude: number;
+  sourceLongitude: number;
+  sourceLocality?: string;
+  sourceCountryCode?: string;
+  initialPm2_5?: number;
+  initialSeverity?: BricsFederationSeverity;
+  pollutionType?: BricsPollutionType | string;
+  horizonHours?: number;
+  propagationResult?: PropagationResult;
+  eventId?: string;
+}
+

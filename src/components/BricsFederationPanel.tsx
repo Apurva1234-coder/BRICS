@@ -18,9 +18,11 @@ import {
   AlertTriangle,
   Send,
   SlidersHorizontal,
-  Compass
+  Compass,
+  TrendingUp
 } from "lucide-react";
 import { CrossBorderPropagationPanel } from "./CrossBorderPropagationPanel";
+import { EconomicCorridorPanel } from "./EconomicCorridorPanel";
 
 export function BricsFederationPanel() {
   const [nodes, setNodes] = useState<BricsCountryNode[]>([]);
@@ -33,7 +35,7 @@ export function BricsFederationPanel() {
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulatedEvent, setSimulatedEvent] = useState<BricsFederationEvent | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"protocol" | "propagation">("protocol");
+  const [activeTab, setActiveTab] = useState<"protocol" | "propagation" | "corridors">("protocol");
 
   const loadFederationData = async () => {
     setLoading(true);
@@ -179,11 +181,26 @@ export function BricsFederationPanel() {
           }`}
         >
           <Wind size={14} />
-          <span>Cross-Border Propagation Model (Stage 3)</span>
+          <span>Cross-Border Propagation (Stage 3)</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("corridors")}
+          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition ${
+            activeTab === "corridors"
+              ? "bg-amber-400/20 text-amber-300 ring-1 ring-amber-400/40 shadow-sm"
+              : "text-slate-400 hover:text-white hover:bg-white/5"
+          }`}
+        >
+          <TrendingUp size={14} />
+          <span>Economic Corridors (Stage 4)</span>
         </button>
       </div>
 
-      {activeTab === "propagation" ? (
+      {activeTab === "corridors" ? (
+        <EconomicCorridorPanel />
+      ) : activeTab === "propagation" ? (
         <CrossBorderPropagationPanel />
       ) : (
         <>
