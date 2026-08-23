@@ -1,0 +1,172 @@
+import type { LucideIcon } from "lucide-react";
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import type { Route } from "../App";
+import { MobileBottomNav } from "./MobileBottomNav";
+import { useTranslation } from "react-i18next";
+import { Settings } from "lucide-react";
+import { AccessibilitySheet } from "./AccessibilitySheet";
+
+interface NavItem {
+  route: Route;
+  label: string;
+  icon: LucideIcon;
+  i18nKey?: string;
+  children?: Array<{ route: Route; label: string }>;
+}
+
+interface AppShellProps {
+  children: ReactNode;
+  navItems: NavItem[];
+  activeRoute: Route;
+  onNavigate: (route: Route) => void;
+  stats: { open: number; high: number; total: number };
+  onClearLocalDemoData?: () => Promise<void>;
+}
+
+export function AppShell({ children, navItems, activeRoute, onNavigate, stats, onClearLocalDemoData }: AppShellProps) {
+  const isMap = activeRoute === "map";
+  const isFederationChild = ["federation-propagation", "federation-corridors", "federation-regulatory"].includes(activeRoute);
+  const { t } = useTranslation();
+  const activeItem = navItems.find((n) => n.route === activeRoute) ?? navItems.find((n) => n.children?.some((child) => child.route === activeRoute));
+  const federationItem = navItems.find((n) => n.route === "federation");
+  const federationActive = activeRoute === "federation" || Boolean(federationItem?.children?.some((child) => child.route === activeRoute));
+  const [federationExpanded, setFederationExpanded] = useState(federationActive);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const settingsButton = useRef<HTMLButtonElement>(null);
+  const openSettings = (event: MouseEvent<HTMLButtonElement>) => {
+    settingsButton.current = event.currentTarget;
+    setSheetOpen(true);
+  };
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("map-route", isMap);
+    document.body.classList.toggle("map-route", isMap);
+    return () => {
+      document.documentElement.classList.remove("map-route");
+      document.body.classList.remove("map-route");
+    };
+  }, [isMap]);
+
+  return (
+    <div className="flex h-[100svh] min-h-0 overflow-hidden app-backdrop">
+      <a href="#main-content" className="skip-link">{t("a11y.skipToContent")}</a>
+
+      {/* ── Left sidebar (Desktop) ── */}
+      <aside
+        className="hidden lg:flex h-full min-h-0 flex-col gap-2 py-3.5 px-2 flex-shrink-0 z-30"
+        style={{
+          width: "144px",
+          background: "rgba(8,10,8,0.96)",
+          borderRight: "1px solid var(--border)",
+          boxShadow: "18px 0 60px rgba(0,0,0,0.18)",
+        }}
+      >
+        {/* Logo mark */}
+        <button
+          onClick={() => onNavigate("map")}
+          className="mb-2 flex h-11 w-full items-center gap-2.5 px-2.5 rounded-lg flex-shrink-0"
+          style={{
+            background: "linear-gradient(135deg, rgba(132,240,106,0.16), rgba(104,215,222,0.08))",
+            border: "1px solid rgba(232,239,226,0.1)",
+          }}
+          title="NagarNetra"
+          aria-label="NagarNetra — go to map"
+        >
+          <span className="brand-mark">
+            <span />
+          </span>
+          <span className="text-xs font-bold text-white tracking-wide">NagarNetra</span>
+        </button>
+
+        <nav aria-label={t("a11y.primaryNavigation")} className="grid gap-1">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const active = item.children ? federationActive : item.route === activeRoute;
+          const label = item.i18nKey ? t(item.i18nKey) : item.label;
+          return (
+            <div key={item.route}>
+              <button
+                onClick={() => item.children ? (setFederationExpanded((open) => !open), onNavigate(item.children[0].route)) : onNavigate(item.route)}
+                title={label}
+                aria-label={label}
+                aria-expanded={item.children ? federationExpanded : undefined}
+                aria-current={active && !item.children ? "page" : undefined}
+                className="relative flex items-center justify-start gap-2.5 w-full rounded-lg px-2.5 py-2 text-left transition-all duration-150 min-h-[38px]"
+                style={{ color: active ? "var(--accent)" : "#64748b", background: active ? "rgba(0,224,122,0.08)" : "transparent" }}
+                onMouseEnter={e => { if (!active) e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
+                onMouseLeave={e => { if (!active) e.currentTarget.style.background = "transparent"; }}
+              >
+                {active && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full" style={{ background: "var(--accent)" }} />}
+                <Icon size={17} strokeWidth={active ? 2.2 : 1.7} />
+                <span className="flex-1 text-xs leading-tight" style={{ fontWeight: 700 }}>{label}</span>
+                {item.children && <span className="text-[11px]">{federationExpanded ? "⌃" : "⌄"}</span>}
+              </button>
+              {item.children && federationExpanded && <div className="ml-3 mt-1 grid gap-0.5 border-l border-white/10 pl-2">
+                {item.children.map((child) => {
+                  const childActive = activeRoute === child.route;
+                  return <button key={child.route} type="button" onClick={() => onNavigate(child.route)} aria-current={childActive ? "page" : undefined} className="relative rounded-md px-2 py-2 text-left text-[10px] leading-tight transition hover:bg-white/[0.05]" style={{ color: childActive ? "var(--accent)" : "#64748b", background: childActive ? "rgba(0,224,122,0.08)" : "transparent", fontWeight: childActive ? 800 : 600 }}><span className="mr-1.5 text-slate-600">↳</span>{child.label}</button>;
+                })}
+              </div>}
+            </div>
+          );
+        })}</nav>
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        <button type="button" onClick={openSettings} className="a11y-setting-button px-2.5 py-2 text-xs" aria-label={t("a11y.openSettings")}>
+          <Settings size={16} aria-hidden="true" />
+          <span className="text-xs">Preferences</span>
+        </button>
+      </aside>
+
+      {/* ── Main content ── */}
+      <main id="main-content" tabIndex={-1} className="flex-1 min-w-0 h-full min-h-0 flex flex-col">
+        {isMap && <button type="button" onClick={openSettings} className="icon-button absolute right-3 top-3 z-[950] min-h-11 min-w-11 lg:hidden" aria-label={t("a11y.openSettings")} title={t("a11y.openSettings")}><Settings aria-hidden="true" /></button>}
+        {/* Top bar — only for non-map pages */}
+        {!isMap && !isFederationChild && (
+          <header
+            className="flex items-center gap-3 px-4 lg:px-7 shrink-0 min-h-16"
+            style={{
+              borderBottom: "1px solid var(--border)",
+              background: "rgba(7,8,6,0.82)",
+              backdropFilter: "blur(16px)",
+            }}
+          >
+            <div>
+              <p className="text-[10px] font-bold uppercase text-slate-500">{t("common.appName")}</p>
+              <h1 className="text-lg lg:text-[16px] font-bold text-white">
+                {activeItem?.children?.find((child) => child.route === activeRoute)?.label ?? (activeItem?.i18nKey ? t(activeItem.i18nKey) : activeItem?.label ?? t("common.appName"))}
+              </h1>
+            </div>
+            <div className="flex-1" />
+            <button type="button" onClick={openSettings} className="icon-button min-h-11 min-w-11 lg:hidden" aria-label={t("a11y.openSettings")} title={t("a11y.openSettings")}><Settings aria-hidden="true" /></button>
+            {stats.high > 0 && (
+              <span className="hidden sm:inline-flex text-[12px] font-semibold px-3 py-1 rounded-md"
+                    style={{ background: "rgba(234,179,8,0.1)", border: "1px solid rgba(234,179,8,0.2)", color: "var(--moderate)" }}>
+                {stats.high} {t("officer.highPriority")}
+              </span>
+            )}
+            <span className="hidden sm:inline-flex metric-pill">{t("situation.openReports", { count: stats.open })}</span>
+          </header>
+        )}
+
+        {/* Page content */}
+        <div className={isMap ? "flex flex-1 h-full min-h-0 flex-col overflow-hidden" : "flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain relative"}>
+          {isMap ? (
+            children
+          ) : (
+            <div className="min-h-full px-4 py-5 pb-[calc(112px+env(safe-area-inset-bottom))] lg:px-7 lg:py-7 lg:pb-7">
+              {children}
+            </div>
+          )}
+        </div>
+      </main>
+
+      {/* ── Bottom Nav (Mobile) ── */}
+      <MobileBottomNav navItems={navItems} activeRoute={activeRoute} onNavigate={onNavigate} />
+      <AccessibilitySheet open={sheetOpen} onClose={() => setSheetOpen(false)} opener={settingsButton} onClearLocalDemoData={onClearLocalDemoData} />
+      <div id="route-announcer" className="sr-only" role="status" aria-live="polite" />
+    </div>
+  );
+}
